@@ -1,0 +1,114 @@
+# zlibrary-download
+
+A Windows desktop utility for authorized book search, download, and fuzzy library construction. The application drives an isolated Chrome profile through Selenium, parses search results with BeautifulSoup, persists download history in SQLite, and exposes the workflow through a Tkinter GUI.
+
+> **Scope boundary:** Use this software only for material that you are authorized to access, download, or redistribute. The project does not implement DRM cracking, login bypass, CAPTCHA bypass, access-control bypass, or credential collection. The operator is responsible for verifying copyright, redistribution permission, site terms, and applicable law.
+
+## Capabilities
+
+- **Metadata search:** Search by title or ISBN and display title, author, publisher, year, language, format, and the size advertised by the source.
+- **Single-item download:** Download a selected format to a user-defined directory. Windows-reserved filename characters are sanitized and existing files are not overwritten.
+- **Download history:** SQLite records the query, source identifier, detail URL, expected/actual byte counts, timestamps, status, and error text.
+- **Fuzzy library builder:** Filter by topic, additional keywords, a 0–100 match threshold, preferred format, maximum search pages, and a target capacity.
+- **Task control:** Pause, resume, and stop batch jobs. A pause or stop takes effect at the current file boundary or another safe checkpoint.
+- **Request throttling:** Serial processing with a default three-second request interval, a 512 MiB free-space reserve, and explicit handling for timeouts, source limits, and insufficient disk space.
+- **Browser isolation:** Uses `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user’s personal Chrome profile. The browser can be made visible for diagnosing source-side messages.
+- **UI and packaging:** Blue/white technical UI with a Furina-themed header accent. The EXE uses `assets/app_icon.ico`, a Hydro droplet and open-book icon.
+
+## Matching and capacity algorithm
+
+Fuzzy matching is implemented in `bookbuilder/utils.py`. Title sequence similarity, query-token hits, containment in title/author/publisher, and optional keyword hits produce a score from 0 to 100. The builder scans pages serially, pre-filters using the source-reported size, and keeps an additional per-file guard of `max(1 MiB, 2%)`; final accounting uses the actual downloaded size.
+
+## Requirements
+
+- Windows 10/11 x64 (validated on Windows 11)
+- Google Chrome (current stable channel)
+- Python 3.14.7 (validation version for this repository)
+- PyInstaller 6.22.2 for packaging only
+
+## Install and run
+
+```powershell
+git clone https://github.com/yifanchen12/zlibrary-download.git
+Set-Location .\zlibrary-download
+
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
+```
+
+Run the test suite:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+## Build the Windows EXE
+
+The build script installs build dependencies, runs the tests, invokes PyInstaller, and performs a `--smoke-test` launch:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Output:
+
+```text
+dist\BookLibraryBuilder.exe
+```
+
+The build embeds `assets/` and the ChromeDriver discovered at build time. Google Chrome must still be installed on the target machine. If the Chrome major version changes, Selenium Manager attempts to resolve a compatible driver.
+
+## Operational workflow
+
+1. In **Settings & authorization**, confirm the source URL, download directory, request interval, and authorization acknowledgement.
+2. In **Search & download**, enter a title or ISBN, search, and select an item.
+3. Start a download. The application checks free space, creates a `downloading` history row, and changes it to `completed` or `failed`.
+4. For batch construction, configure the topic, keywords, threshold, format, page limit, and capacity in **Fuzzy library**.
+
+For an approximately 50 GB PDF collection on artificial intelligence, start with topic `人工智能`, additional keywords `教材, 导论, 基础, undergraduate, textbook`, threshold `55`, format `PDF`, and capacity `50`. Begin with a small page limit, review the results, and increase it incrementally.
+
+## Local data paths
+
+```text
+%LOCALAPPDATA%\AuthorizedBookBuilder\settings.json
+%LOCALAPPDATA%\AuthorizedBookBuilder\history.sqlite3
+%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\
+```
+
+The settings file stores the source URL, directories, timeouts, and authorization acknowledgement. The history database stores the metadata and local paths described above. The application has no built-in telemetry, advertising SDK, or remote analytics service.
+
+## Security and privacy statement
+
+1. **Data flow:** Search terms, detail-page requests, and downloads are sent to the source URL configured in the application. The program has no designed reporting channel beyond that source and sites the user explicitly visits.
+2. **Browser session data:** The isolated Chrome profile may contain cookies, cache, or site storage if the user signs in. Treat this directory as sensitive and never commit or share it.
+3. **Credentials:** The application does not request passwords, API tokens, or private keys. Never place credentials, cookies, token-bearing URLs, or personal filesystem paths in the repository, logs, or issue reports.
+4. **Downloaded files:** Files from external sources are untrusted input. Scan them with local security software before opening; do not execute scripts, macros, or binaries found in an ebook archive.
+5. **Transport:** HTTPS is the default source scheme. If the source URL is changed, independently verify the domain, certificate, and ownership; the application does not establish source trust for the operator.
+6. **Filesystem behavior:** Writes are limited to the selected download directory and the application-data directory above. Existing files are not overwritten or deleted during the normal flow.
+7. **Release integrity:** After downloading an EXE from a GitHub Release, verify it with `Get-FileHash .\BookLibraryBuilder.exe -Algorithm SHA256` against the release digest.
+
+See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and operational security requirements.
+
+## Repository layout
+
+```text
+main.py                 CLI entry point, version, and smoke test
+bookbuilder/browser.py  Chrome lifecycle, parsing, and download wait logic
+bookbuilder/services.py Download service and fuzzy-builder scheduler
+bookbuilder/database.py SQLite history persistence
+bookbuilder/config.py   Settings and local data paths
+bookbuilder/gui.py      Tkinter interface
+bookbuilder/models.py   Data models
+bookbuilder/utils.py    Filename, size, and matching helpers
+assets/                 EXE icon and header artwork
+tests/                  Unit tests and HTML fixtures
+```
+
+## Version and release
+
+- Current version: `1.1.1`
+- Windows package: [BookLibraryBuilder.exe v1.1.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.1.1)
+- Default branch: `main`
+
+This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.
