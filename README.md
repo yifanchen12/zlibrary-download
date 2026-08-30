@@ -1,5 +1,7 @@
 # zlibrary-download
 
+[简体中文](README.md) | [English](README.en.md)
+
 Windows 桌面端的授权书籍检索、下载与模糊建库工具。项目使用 Selenium 驱动独立的 Chrome 配置目录访问用户指定的书籍来源，使用 BeautifulSoup 解析检索结果，使用 SQLite 持久化下载历史，并通过 Tkinter 提供图形界面。
 
 > **项目边界**：本软件只处理用户有权访问、下载或再分发的内容。它不实现 DRM 破解、登录绕过、验证码绕过、访问控制绕过或任何形式的凭据收集。使用者须自行确认版权、再分发授权、站点条款及所在司法辖区的合规要求。

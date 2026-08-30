@@ -1,5 +1,7 @@
 # zlibrary-download
 
+[简体中文](README.md) | [English](README.en.md)
+
 A Windows desktop utility for authorized book search, download, and fuzzy library construction. The application drives an isolated Chrome profile through Selenium, parses search results with BeautifulSoup, persists download history in SQLite, and exposes the workflow through a Tkinter GUI.
 
 > **Scope boundary:** Use this software only for material that you are authorized to access, download, or redistribute. The project does not implement DRM cracking, login bypass, CAPTCHA bypass, access-control bypass, or credential collection. The operator is responsible for verifying copyright, redistribution permission, site terms, and applicable law.
