@@ -62,11 +62,11 @@ def _bundled_driver() -> Path | None:
 
 
 class BrowserController:
-    """Launches a normal Chrome session and attaches through Chrome DevTools.
+    """Launches an isolated headless Chrome session through Chrome DevTools.
 
-    Chrome is deliberately not launched in headless/WebDriver mode because the target
-    uses regular browser JavaScript checks. A dedicated profile keeps this tool isolated
-    from the user's personal browser profile.
+    Chrome runs in native ``--headless=new`` mode, so the source page can execute its
+    normal JavaScript without creating a desktop window. A dedicated profile keeps the
+    automation session isolated from the user's personal Chrome profile.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -75,15 +75,12 @@ class BrowserController:
         self.process: subprocess.Popen[bytes] | None = None
         self._last_request = 0.0
 
-    def start(self) -> None:
-        if self.driver:
-            return
-        chrome = find_chrome()
-        profile = app_data_dir() / "chrome-profile"
-        profile.mkdir(parents=True, exist_ok=True)
-        port = _free_port()
-        args = [
+    @staticmethod
+    def _launch_arguments(chrome: Path, profile: Path, port: int) -> list[str]:
+        return [
             str(chrome),
+            "--headless=new",
+            "--window-size=1440,1200",
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile}",
             "--no-first-run",
@@ -92,8 +89,15 @@ class BrowserController:
             "--remote-allow-origins=*",
             "about:blank",
         ]
-        if not self.settings.show_browser:
-            args.insert(-1, "--start-minimized")
+
+    def start(self) -> None:
+        if self.driver:
+            return
+        chrome = find_chrome()
+        profile = app_data_dir() / "chrome-profile"
+        profile.mkdir(parents=True, exist_ok=True)
+        port = _free_port()
+        args = self._launch_arguments(chrome, profile, port)
         creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.process = subprocess.Popen(
             args,
@@ -295,4 +299,3 @@ class BrowserController:
         if completed.resolve() != destination.resolve():
             completed.replace(destination)
         return destination
-

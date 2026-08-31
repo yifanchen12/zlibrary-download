@@ -14,7 +14,7 @@ A Windows desktop utility for authorized book search, download, and fuzzy librar
 - **Fuzzy library builder:** Filter by topic, additional keywords, a 0–100 match threshold, preferred format, maximum search pages, and a target capacity.
 - **Task control:** Pause, resume, and stop batch jobs. A pause or stop takes effect at the current file boundary or another safe checkpoint.
 - **Request throttling:** Serial processing with a default three-second request interval, a 512 MiB free-space reserve, and explicit handling for timeouts, source limits, and insufficient disk space.
-- **Browser isolation:** Uses `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user’s personal Chrome profile. The browser can be made visible for diagnosing source-side messages.
+- **Windowless browser:** Chrome always runs in native `--headless=new` mode and does not create a desktop window. The automation session uses `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user’s personal Chrome profile.
 - **UI and packaging:** Blue/white technical UI with a Furina-themed header accent. The EXE uses `assets/app_icon.ico`, a Hydro droplet and open-book icon.
 
 ## Matching and capacity algorithm
@@ -109,8 +109,8 @@ tests/                  Unit tests and HTML fixtures
 
 ## Version and release
 
-- Current version: `1.1.1`
-- Windows package: [BookLibraryBuilder.exe v1.1.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.1.1)
+- Current version: `1.2.0`
+- Windows package: [BookLibraryBuilder.exe v1.2.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.0)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.

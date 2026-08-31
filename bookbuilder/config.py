@@ -29,7 +29,6 @@ class Settings:
     request_delay: float = 3.0
     page_timeout: int = 120
     download_timeout: int = 3600
-    show_browser: bool = False
     authorization_confirmed: bool = False
 
     @classmethod
@@ -52,4 +51,3 @@ class Settings:
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(path)
-

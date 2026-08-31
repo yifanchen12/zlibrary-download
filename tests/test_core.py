@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from bookbuilder.browser import BrowserController
+from bookbuilder.config import Settings
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
 from bookbuilder.utils import fuzzy_score, human_size, parse_size, safe_filename, split_keywords
@@ -46,6 +47,17 @@ class UtilityTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
+    def test_headless_launch_arguments(self) -> None:
+        controller = BrowserController(Settings())
+        arguments = controller._launch_arguments(
+            Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+            Path(r"C:\Temp\AuthorizedBookBuilder\chrome-profile"),
+            9222,
+        )
+        self.assertIn("--headless=new", arguments)
+        self.assertIn("--window-size=1440,1200", arguments)
+        self.assertNotIn("--start-minimized", arguments)
+
     def test_search_card(self) -> None:
         fixture = Path(__file__).parent / "fixtures" / "search.html"
         books = BrowserController.parse_search_html(fixture.read_text(encoding="utf-8"))
@@ -87,4 +99,3 @@ class DatabaseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

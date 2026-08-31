@@ -274,7 +274,7 @@ class BookBuilderApp:
         self._build_history_tab()
         self._build_settings_tab()
 
-        self.global_status = tk.StringVar(value="就绪；首次访问详情页时浏览器校验可能需要十余秒。")
+        self.global_status = tk.StringVar(value="就绪；后台浏览器首次访问详情页时，站点校验可能需要十余秒。")
         ttk.Label(self.root, textvariable=self.global_status, anchor="w", style="Status.TLabel").pack(fill="x", side="bottom")
 
     @staticmethod
@@ -435,7 +435,6 @@ class BookBuilderApp:
         self.setting_delay = tk.DoubleVar(value=self.settings.request_delay)
         self.setting_page_timeout = tk.IntVar(value=self.settings.page_timeout)
         self.setting_download_timeout = tk.IntVar(value=self.settings.download_timeout)
-        self.setting_show_browser = tk.BooleanVar(value=self.settings.show_browser)
         self.setting_authorized = tk.BooleanVar(value=self.settings.authorization_confirmed)
         labels = (
             ("默认下载目录", self.setting_output),
@@ -447,20 +446,17 @@ class BookBuilderApp:
         for row, (label, variable) in enumerate(labels):
             ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
             ttk.Entry(frame, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=6)
-        ttk.Checkbutton(frame, text="显示自动化浏览器窗口（下次启动浏览器时生效）", variable=self.setting_show_browser).grid(
-            row=5, column=0, columnspan=2, sticky="w", pady=6
-        )
         ttk.Checkbutton(
             frame,
             text="我确认仅下载已获授权、开放许可或公版内容，并遵守来源站点规则",
             variable=self.setting_authorized,
-        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=6)
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=6)
         ttk.Button(frame, text="保存设置", style="Accent.TButton", command=self._save_settings).grid(
-            row=7, column=0, sticky="w", pady=(10, 0)
+            row=6, column=0, sticky="w", pady=(10, 0)
         )
         ttk.Label(
             self.settings_tab,
-            text="说明：程序只启用一个下载任务；“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
+            text="说明：Chrome 始终以无窗口后台模式运行；程序只启用一个下载任务，“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
             style="Hint.TLabel",
             wraplength=900,
         ).pack(anchor="w", pady=14)
@@ -505,7 +501,7 @@ class BookBuilderApp:
             return
         page = max(1, self.search_page.get())
         self.search_button.configure(state="disabled")
-        self.search_status.set("正在启动浏览器并检索…")
+        self.search_status.set("正在启动后台浏览器并检索…")
 
         def operation() -> None:
             books = self.browser.search(query, page)
@@ -701,12 +697,11 @@ class BookBuilderApp:
         self.settings.request_delay = delay
         self.settings.page_timeout = page_timeout
         self.settings.download_timeout = download_timeout
-        self.settings.show_browser = bool(self.setting_show_browser.get())
         self.settings.authorization_confirmed = bool(self.setting_authorized.get())
         self.settings.save()
         self.search_output.set(self.settings.output_dir)
         self.batch_output.set(self.settings.output_dir)
-        messagebox.showinfo("已保存", "设置已保存。浏览器显示方式会在下次启动浏览器时生效。")
+        messagebox.showinfo("已保存", "设置已保存。Chrome 将继续以无窗口后台模式运行。")
 
     def _process_messages(self) -> None:
         try:

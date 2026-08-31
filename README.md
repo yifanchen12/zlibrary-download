@@ -14,7 +14,7 @@ Windows 桌面端的授权书籍检索、下载与模糊建库工具。项目使
 - **模糊建库**：根据主题、附加关键词和 0–100 匹配阈值筛选结果，可限制 PDF/EPUB 等格式、最大检索页数和目标容量。
 - **任务控制**：批量任务支持暂停、继续和停止；停止/暂停在当前文件完成或当前安全检查点生效。
 - **请求节制**：默认串行处理并使用 3 秒请求间隔；目标磁盘保留 512 MiB 安全余量；站点限额、超时和空间不足会写入历史记录。
-- **隔离浏览器**：使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置；可选显示浏览器窗口以便诊断站点提示。
+- **无窗口浏览器**：Chrome 固定使用原生 `--headless=new` 模式运行，不创建桌面窗口；自动化会话使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置。
 - **本地化界面**：蓝白高科技主题，页眉包含芙宁娜主题装饰图；EXE 使用 `assets/app_icon.ico` 的水滴与开放书本图标。
 
 ## 算法与容量约束
@@ -109,8 +109,8 @@ tests/                  单元测试和 HTML fixture
 
 ## 版本与发布
 
-- 当前版本：`1.1.1`
-- Windows 发布包：[BookLibraryBuilder.exe v1.1.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.1.1)
+- 当前版本：`1.2.0`
+- Windows 发布包：[BookLibraryBuilder.exe v1.2.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.0)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。
