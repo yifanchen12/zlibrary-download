@@ -15,7 +15,7 @@ Windows 桌面端的授权书籍检索、下载与模糊建库工具。项目使
 - **任务控制**：批量任务支持暂停、继续和停止；停止/暂停在当前文件完成或当前安全检查点生效。
 - **请求节制**：默认串行处理并使用 3 秒请求间隔；目标磁盘保留 512 MiB 安全余量；站点限额、超时和空间不足会写入历史记录。
 - **入口自动发现**：启动后最多每 6 小时读取一次仓库维护的公开入口清单；通过 HTTPS 与域名校验后自动填充并保存新入口，同时识别受信任的站点跳转。
-- **浏览器兼容策略**：默认先用原生 `--headless=new` 完全无窗口运行；若站点明确拒绝该模式，自动改用最小化的普通 Chrome 重试。也可在设置中固定为“完全无窗口”或“兼容模式”。两种模式均使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置。
+- **浏览器兼容策略**：默认先用原生 `--headless=new` 完全无窗口运行；若站点明确拒绝该模式，自动改用隐藏的普通 Chrome 重试。兼容窗口通过 Windows 启动参数、屏幕外定位和 Win32 窗口隐藏共同处理，不在桌面或任务栏展示。也可在设置中固定为“完全无窗口”或“兼容模式”。两种模式均使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置。
 - **本地化界面**：蓝白高科技主题，页眉包含芙宁娜主题装饰图；EXE 使用 `assets/app_icon.ico` 的水滴与开放书本图标。
 
 ## 算法与容量约束
@@ -93,15 +93,15 @@ dist\BookLibraryBuilder.exe
 
 ### “站点访问检查未通过”
 
-部分站点会拒绝 Chrome 的完全无窗口模式。`v1.3.1` 的默认“自动兼容”策略会先尝试完全无窗口模式；检测到此类拒绝后，会关闭该会话并使用最小化的普通 Chrome 自动重试。新站点使用的 `z-bookcard` 检索结果结构也已纳入解析。
+部分站点会拒绝 Chrome 的完全无窗口模式。默认“自动兼容”策略会先尝试完全无窗口模式；检测到此类拒绝后，会关闭该会话并使用隐藏的普通 Chrome 自动重试。新站点使用的 `z-bookcard` 检索结果结构也已纳入解析。`v1.3.2` 进一步隐藏兼容窗口，不再向用户展示任务栏项目。
 
 若仍失败，请在“设置与授权”中按顺序尝试：
 
 1. 确认站点入口为 `https://z-library.biz` 或 `https://z-library.biz/s/`，保存后重试；
-2. 将浏览器模式固定为“兼容模式（最小化 Chrome）”；
+2. 将浏览器模式固定为“兼容模式（隐藏 Chrome）”；
 3. 使用普通 Chrome 验证当前网络能够访问该站点，并等待站点临时限流解除。
 
-兼容模式可能在任务栏短暂显示一个最小化 Chrome；这是站点兼容所需的普通浏览器上下文，不会读取个人 Chrome 配置。
+兼容模式仍会创建站点所需的普通浏览器上下文，但窗口被移至屏幕外并通过 Windows 接口隐藏，不会出现在桌面或任务栏，也不会读取个人 Chrome 配置。
 
 ### `ERR_CONNECTION_TIMED_OUT`
 
@@ -145,8 +145,8 @@ source_registry.json    项目维护的当前站点入口清单
 
 ## 版本与发布
 
-- 当前版本：`1.3.1`
-- Windows 发布包：[BookLibraryBuilder.exe v1.3.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.1)
+- 当前版本：`1.3.2`
+- Windows 发布包：[BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。

@@ -43,7 +43,7 @@ PALETTE = {
 BROWSER_MODE_LABELS = {
     "auto": "自动兼容（推荐）",
     "headless": "完全无窗口",
-    "compatibility": "兼容模式（最小化 Chrome）",
+    "compatibility": "兼容模式（隐藏 Chrome）",
 }
 BROWSER_MODE_VALUES = {label: value for value, label in BROWSER_MODE_LABELS.items()}
 
@@ -498,7 +498,7 @@ class BookBuilderApp:
         )
         ttk.Label(
             self.settings_tab,
-            text="说明：自动兼容模式先使用无窗口 Chrome；若站点拒绝该模式，则改用最小化的普通 Chrome。程序只启用一个下载任务，“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
+            text="说明：自动兼容模式先使用无窗口 Chrome；若站点拒绝该模式，则改用隐藏的普通 Chrome，桌面和任务栏均不显示浏览器窗口。程序只启用一个下载任务，“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
             style="Hint.TLabel",
             wraplength=900,
         ).pack(anchor="w", pady=14)
@@ -814,7 +814,7 @@ class BookBuilderApp:
                         )
                     self.search_status.set(f"找到 {len(books)} 条可见结果")
                     if self.settings.browser_mode == "auto" and self.browser.runtime_mode == "compatibility":
-                        self.global_status.set("站点拒绝完全无窗口模式，已自动改用最小化兼容模式。")
+                        self.global_status.set("站点拒绝完全无窗口模式，已自动改用隐藏兼容模式。")
                 elif event == "single_progress":
                     current, total, title = payload
                     if total:

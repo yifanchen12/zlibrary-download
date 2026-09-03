@@ -166,8 +166,21 @@ class ParserTests(unittest.TestCase):
             9222,
             "compatibility",
         )
-        self.assertIn("--start-minimized", arguments)
+        self.assertIn("--window-position=-32000,-32000", arguments)
+        self.assertIn("--disable-backgrounding-occluded-windows", arguments)
+        self.assertNotIn("--start-minimized", arguments)
         self.assertNotIn("--headless=new", arguments)
+
+    def test_compatibility_mode_requests_hidden_startup(self) -> None:
+        controller = BrowserController(Settings(browser_mode="compatibility"))
+        startup_info = controller._startup_info("compatibility")
+        if os.name == "nt":
+            self.assertIsNotNone(startup_info)
+            assert startup_info is not None
+            self.assertEqual(startup_info.wShowWindow, 0)
+        else:
+            self.assertIsNone(startup_info)
+        self.assertIsNone(controller._startup_info("headless"))
 
     def test_navigation_timeout_message_is_actionable_and_has_no_stacktrace(self) -> None:
         error = WebDriverException(

@@ -101,6 +101,32 @@ def _bundled_driver() -> Path | None:
     return None
 
 
+def _hide_windows_for_pid(process_id: int) -> int:
+    """Hide all top-level Windows owned by a process and return the match count."""
+
+    if os.name != "nt":
+        return 0
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    matched = 0
+
+    @callback_type
+    def callback(window: int, _parameter: int) -> bool:
+        nonlocal matched
+        owner = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(window, ctypes.byref(owner))
+        if owner.value == process_id:
+            matched += 1
+            user32.ShowWindow(window, 0)  # SW_HIDE
+        return True
+
+    user32.EnumWindows(callback, 0)
+    return matched
+
+
 class BrowserController:
     """Launch an isolated Chrome session through Chrome DevTools.
 
@@ -136,10 +162,29 @@ class BrowserController:
             "about:blank",
         ]
         if mode == "compatibility":
-            arguments.insert(1, "--start-minimized")
+            arguments[1:1] = [
+                "--window-position=-32000,-32000",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+            ]
         else:
             arguments.insert(1, "--headless=new")
         return arguments
+
+    @staticmethod
+    def _startup_info(mode: str) -> object | None:
+        if mode != "compatibility" or os.name != "nt":
+            return None
+        startup_info = subprocess.STARTUPINFO()
+        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup_info.wShowWindow = 0  # SW_HIDE
+        return startup_info
+
+    def _hide_compatibility_windows(self) -> int:
+        if self.runtime_mode != "compatibility" or not self.process:
+            return 0
+        return _hide_windows_for_pid(self.process.pid)
 
     def start(self) -> None:
         if self.driver:
@@ -155,9 +200,11 @@ class BrowserController:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=creation_flags,
+            startupinfo=self._startup_info(self.runtime_mode),
         )
         endpoint = f"http://127.0.0.1:{port}/json/version"
         for _ in range(60):
+            self._hide_compatibility_windows()
             try:
                 response = requests.get(endpoint, timeout=1)
                 if response.ok:
@@ -177,6 +224,7 @@ class BrowserController:
         try:
             service = Service(executable_path=str(driver_path)) if driver_path else Service()
             self.driver = webdriver.Chrome(service=service, options=options)
+            self._hide_compatibility_windows()
         except WebDriverException as first_error:
             if driver_path:
                 try:
@@ -224,6 +272,7 @@ class BrowserController:
         self.driver.set_page_load_timeout(max(20, self.settings.page_timeout))
         try:
             self.driver.get(url)
+            self._hide_compatibility_windows()
         except TimeoutException as error:
             try:
                 self.driver.execute_script("window.stop();")

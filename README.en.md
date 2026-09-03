@@ -15,7 +15,7 @@ A Windows desktop utility for authorized book search, download, and fuzzy librar
 - **Task control:** Pause, resume, and stop batch jobs. A pause or stop takes effect at the current file boundary or another safe checkpoint.
 - **Request throttling:** Serial processing with a default three-second request interval, a 512 MiB free-space reserve, and explicit handling for timeouts, source limits, and insufficient disk space.
 - **Automatic source discovery:** At startup, the application checks the repository-maintained public source registry at most once every six hours. A new source is filled in and persisted only after HTTPS and hostname validation; trusted site redirects are also recognized.
-- **Browser compatibility policy:** Chrome first runs in native `--headless=new` mode without a desktop window. If the source explicitly rejects that mode, the application automatically retries with a minimized regular Chrome window. The mode can also be fixed to **Fully headless** or **Compatibility** in settings. Both modes use `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user's personal Chrome profile.
+- **Browser compatibility policy:** Chrome first runs in native `--headless=new` mode without a desktop window. If the source explicitly rejects that mode, the application automatically retries with a hidden regular Chrome instance. Windows startup state, off-screen placement, and Win32 window hiding keep the compatibility window off both the desktop and taskbar. The mode can also be fixed to **Fully headless** or **Compatibility** in settings. Both modes use `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user's personal Chrome profile.
 - **UI and packaging:** Blue/white technical UI with a Furina-themed header accent. The EXE uses `assets/app_icon.ico`, a Hydro droplet and open-book icon.
 
 ## Matching and capacity algorithm
@@ -93,15 +93,15 @@ Starting with `v1.3.1`, a search entry such as `https://z-library.biz/s/` is nor
 
 ### “Source access check failed”
 
-Some sources reject Chrome's fully headless mode. The default **Automatic compatibility** policy in `v1.3.1` first tries the windowless mode, then closes that session and retries with a minimized regular Chrome window when this rejection is detected. The parser also supports the source's newer `z-bookcard` search-result structure.
+Some sources reject Chrome's fully headless mode. The default **Automatic compatibility** policy first tries the windowless mode, then closes that session and retries with a hidden regular Chrome instance when this rejection is detected. The parser also supports the source's newer `z-bookcard` search-result structure. `v1.3.2` additionally hides the compatibility window from the taskbar.
 
 If the check still fails, use **Settings & authorization** to:
 
 1. Confirm that the source is `https://z-library.biz` or `https://z-library.biz/s/`, then save and retry.
-2. Select **Compatibility (minimized Chrome)** explicitly.
+2. Select **Compatibility (hidden Chrome)** explicitly.
 3. Confirm that regular Chrome can reach the source on the current network and wait for any temporary source throttling to clear.
 
-Compatibility mode may briefly show a minimized Chrome item on the taskbar. It provides the regular-browser context required by the source and still does not read the personal Chrome profile.
+Compatibility mode still creates the regular-browser context required by the source, but moves it off-screen and hides it through the Windows API. It is not shown on the desktop or taskbar and does not read the personal Chrome profile.
 
 ### `ERR_CONNECTION_TIMED_OUT`
 
@@ -145,8 +145,8 @@ source_registry.json    Repository-maintained current source registry
 
 ## Version and release
 
-- Current version: `1.3.1`
-- Windows package: [BookLibraryBuilder.exe v1.3.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.1)
+- Current version: `1.3.2`
+- Windows package: [BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.
