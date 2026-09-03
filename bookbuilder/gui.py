@@ -15,6 +15,13 @@ from .config import Settings, normalize_base_url
 from .database import HistoryDatabase
 from .models import BatchOptions, Book
 from .services import DownloadService, LibraryBuilder
+from .source_discovery import (
+    SourceDiscoveryError,
+    SourceDiscoveryResult,
+    discover_preferred_source,
+    managed_source_origin,
+    source_check_due,
+)
 from .utils import human_size, split_keywords
 
 
@@ -53,6 +60,7 @@ class BookBuilderApp:
         self.resume_event = threading.Event()
         self.resume_event.set()
         self.cancel_event = threading.Event()
+        self.source_check_active = False
 
         self.root.title("授权书籍下载与模糊建库工具")
         self.root.geometry("1240x880")
@@ -63,6 +71,7 @@ class BookBuilderApp:
         self._build_ui()
         self._load_history()
         self.root.after(100, self._process_messages)
+        self.root.after(600, self._start_source_check)
 
     def _configure_style(self) -> None:
         style = ttk.Style(self.root)
@@ -436,6 +445,7 @@ class BookBuilderApp:
         self.setting_page_timeout = tk.IntVar(value=self.settings.page_timeout)
         self.setting_download_timeout = tk.IntVar(value=self.settings.download_timeout)
         self.setting_authorized = tk.BooleanVar(value=self.settings.authorization_confirmed)
+        self.setting_auto_source = tk.BooleanVar(value=self.settings.auto_update_source)
         labels = (
             ("默认下载目录", self.setting_output),
             ("站点入口", self.setting_base),
@@ -448,11 +458,26 @@ class BookBuilderApp:
             ttk.Entry(frame, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=6)
         ttk.Checkbutton(
             frame,
+            text="启动时自动检测并填充项目维护的新站点入口",
+            variable=self.setting_auto_source,
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=6)
+        ttk.Checkbutton(
+            frame,
             text="我确认仅下载已获授权、开放许可或公版内容，并遵守来源站点规则",
             variable=self.setting_authorized,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=6)
-        ttk.Button(frame, text="保存设置", style="Accent.TButton", command=self._save_settings).grid(
-            row=6, column=0, sticky="w", pady=(10, 0)
+        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=6)
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=7, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Button(buttons, text="保存设置", style="Accent.TButton", command=self._save_settings).pack(side="left")
+        self.source_check_button = ttk.Button(
+            buttons,
+            text="立即检测新入口",
+            command=lambda: self._start_source_check(manual=True),
+        )
+        self.source_check_button.pack(side="left", padx=8)
+        self.source_status = tk.StringVar(value="尚未检测远程入口清单")
+        ttk.Label(frame, textvariable=self.source_status, style="Hint.TLabel").grid(
+            row=8, column=0, columnspan=2, sticky="w", pady=(8, 0)
         )
         ttk.Label(
             self.settings_tab,
@@ -480,6 +505,43 @@ class BookBuilderApp:
 
         threading.Thread(target=target, name=f"bookbuilder-{label}", daemon=True).start()
         return True
+
+    def _start_source_check(self, manual: bool = False) -> None:
+        if self.source_check_active:
+            if manual:
+                messagebox.showinfo("正在检测", "站点入口检测正在后台进行。")
+            return
+        if self.busy_lock.locked():
+            if manual:
+                messagebox.showinfo("任务进行中", "请等待当前检索或下载任务完成后再检测。")
+            else:
+                self.root.after(3000, self._start_source_check)
+            return
+        if not manual and not self.settings.auto_update_source:
+            self.source_status.set("自动检测已关闭")
+            return
+        if not manual and not source_check_due(self.settings.source_checked_at):
+            self.source_status.set(f"当前入口：{self.settings.base_url}")
+            return
+        if managed_source_origin(self.settings.base_url) is None:
+            self.source_status.set("当前为自定义来源，自动检测不会覆盖")
+            if manual:
+                messagebox.showinfo("保留自定义来源", "当前站点入口不是项目维护来源，已保留原设置。")
+            return
+
+        original_url = normalize_base_url(self.settings.base_url)
+        self.source_check_active = True
+        self.source_check_button.configure(state="disabled")
+        self.source_status.set("正在检测项目维护的最新入口…")
+
+        def target() -> None:
+            try:
+                result = discover_preferred_source(original_url)
+                self._post("source_check_done", (result, manual))
+            except SourceDiscoveryError as error:
+                self._post("source_check_error", (str(error), manual))
+
+        threading.Thread(target=target, name="bookbuilder-source-check", daemon=True).start()
 
     def _ensure_authorized(self) -> bool:
         if self.settings.authorization_confirmed:
@@ -693,12 +755,16 @@ class BookBuilderApp:
             messagebox.showwarning("参数错误", "间隔和超时必须为有效数字。")
             return
         self.settings.output_dir = self.setting_output.get().strip() or self.settings.output_dir
+        previous_base_url = self.settings.base_url
         self.settings.base_url = normalize_base_url(self.setting_base.get())
+        if self.settings.base_url != previous_base_url:
+            self.settings.source_checked_at = 0.0
         self.setting_base.set(self.settings.base_url)
         self.settings.request_delay = delay
         self.settings.page_timeout = page_timeout
         self.settings.download_timeout = download_timeout
         self.settings.authorization_confirmed = bool(self.setting_authorized.get())
+        self.settings.auto_update_source = bool(self.setting_auto_source.get())
         self.settings.save()
         self.search_output.set(self.settings.output_dir)
         self.batch_output.set(self.settings.output_dir)
@@ -751,8 +817,41 @@ class BookBuilderApp:
                     if label == "search":
                         self.search_status.set(f"检索失败：{error}")
                     messagebox.showerror("任务失败", str(error))
+                elif event == "source_check_done":
+                    result, manual = payload
+                    assert isinstance(result, SourceDiscoveryResult)
+                    self.source_check_active = False
+                    self.source_check_button.configure(state="normal")
+                    field_value = normalize_base_url(self.setting_base.get())
+                    if field_value != result.current_url:
+                        self.source_status.set("输入框内容已变化，本次检测结果未覆盖")
+                    else:
+                        self.settings.source_checked_at = result.checked_at
+                        if result.changed:
+                            self.settings.base_url = result.preferred_url
+                            self.setting_base.set(result.preferred_url)
+                            self.settings.save()
+                            self.source_status.set(f"已自动更新入口：{result.preferred_url}")
+                            self.global_status.set(f"站点入口已更新：{result.preferred_url}")
+                            if manual:
+                                messagebox.showinfo("检测完成", f"已更新并保存站点入口：\n{result.preferred_url}")
+                        else:
+                            self.settings.save()
+                            self.source_status.set(f"已是最新入口：{result.preferred_url}")
+                            if manual:
+                                messagebox.showinfo("检测完成", "当前已经是项目维护的最新站点入口。")
+                elif event == "source_check_error":
+                    error, manual = payload
+                    self.source_check_active = False
+                    self.source_check_button.configure(state="normal")
+                    self.source_status.set(f"检测失败，继续使用当前入口：{self.settings.base_url}")
+                    if manual:
+                        messagebox.showwarning("检测失败", str(error))
                 elif event == "worker_idle":
                     self.search_button.configure(state="normal")
+                    if self.settings.base_url != normalize_base_url(self.setting_base.get()):
+                        self.setting_base.set(self.settings.base_url)
+                        self.source_status.set(f"已从站点跳转更新入口：{self.settings.base_url}")
                     if payload != "batch":
                         self.global_status.set("就绪")
         except queue.Empty:

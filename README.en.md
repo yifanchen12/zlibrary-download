@@ -14,6 +14,7 @@ A Windows desktop utility for authorized book search, download, and fuzzy librar
 - **Fuzzy library builder:** Filter by topic, additional keywords, a 0–100 match threshold, preferred format, maximum search pages, and a target capacity.
 - **Task control:** Pause, resume, and stop batch jobs. A pause or stop takes effect at the current file boundary or another safe checkpoint.
 - **Request throttling:** Serial processing with a default three-second request interval, a 512 MiB free-space reserve, and explicit handling for timeouts, source limits, and insufficient disk space.
+- **Automatic source discovery:** At startup, the application checks the repository-maintained public source registry at most once every six hours. A new source is filled in and persisted only after HTTPS and hostname validation; trusted site redirects are also recognized.
 - **Windowless browser:** Chrome always runs in native `--headless=new` mode and does not create a desktop window. The automation session uses `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user’s personal Chrome profile.
 - **UI and packaging:** Blue/white technical UI with a Furina-themed header accent. The EXE uses `assets/app_icon.ico`, a Hydro droplet and open-book icon.
 
@@ -78,13 +79,15 @@ For an approximately 50 GB PDF collection on artificial intelligence, start with
 %LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\
 ```
 
-The settings file stores the source URL, directories, timeouts, and authorization acknowledgement. The history database stores the metadata and local paths described above. The application has no built-in telemetry, advertising SDK, or remote analytics service.
+The settings file stores the source URL, automatic-check state, last-check time, directories, timeouts, and authorization acknowledgement. The history database stores the metadata and local paths described above. The application has no built-in telemetry, advertising SDK, or remote analytics service.
 
 ## Troubleshooting
 
 ### Legacy source migration
 
 The default source is now `https://z-library.biz`. Starting with `v1.2.2`, the application automatically migrates the former default `https://z-library.bz` when loading existing settings. Other user-configured source URLs remain unchanged.
+
+Starting with `v1.3.0`, the application also reads [`source_registry.json`](source_registry.json) from the repository in the background, at most once every six hours. A detected value is persisted only after manifest, HTTPS, hostname, and port validation. Automatic checks can be disabled, and **Check for a new source now** can be used from the settings page. Custom source URLs are never replaced by the remote registry.
 
 ### `ERR_CONNECTION_TIMED_OUT`
 
@@ -99,7 +102,7 @@ Common Chrome network failures now produce a concise diagnostic instead of placi
 
 ## Security and privacy statement
 
-1. **Data flow:** Search terms, detail-page requests, and downloads are sent to the source URL configured in the application. The program has no designed reporting channel beyond that source and sites the user explicitly visits.
+1. **Data flow:** Search terms, detail-page requests, and downloads are sent to the configured source. When automatic source discovery is enabled, the application retrieves the public `source_registry.json` from `raw.githubusercontent.com/yifanchen12/zlibrary-download` at most once every six hours. This request contains no query terms, download history, cookies, tokens, or local paths.
 2. **Browser session data:** The isolated Chrome profile may contain cookies, cache, or site storage if the user signs in. Treat this directory as sensitive and never commit or share it.
 3. **Credentials:** The application does not request passwords, API tokens, or private keys. Never place credentials, cookies, token-bearing URLs, or personal filesystem paths in the repository, logs, or issue reports.
 4. **Downloaded files:** Files from external sources are untrusted input. Scan them with local security software before opening; do not execute scripts, macros, or binaries found in an ebook archive.
@@ -117,17 +120,19 @@ bookbuilder/browser.py  Chrome lifecycle, parsing, and download wait logic
 bookbuilder/services.py Download service and fuzzy-builder scheduler
 bookbuilder/database.py SQLite history persistence
 bookbuilder/config.py   Settings and local data paths
+bookbuilder/source_discovery.py Remote-registry validation and trusted redirect detection
 bookbuilder/gui.py      Tkinter interface
 bookbuilder/models.py   Data models
 bookbuilder/utils.py    Filename, size, and matching helpers
 assets/                 EXE icon and header artwork
 tests/                  Unit tests and HTML fixtures
+source_registry.json    Repository-maintained current source registry
 ```
 
 ## Version and release
 
-- Current version: `1.2.2`
-- Windows package: [BookLibraryBuilder.exe v1.2.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.2)
+- Current version: `1.3.0`
+- Windows package: [BookLibraryBuilder.exe v1.3.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.0)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.

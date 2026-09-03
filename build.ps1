@@ -37,9 +37,21 @@ $exe = Join-Path $PSScriptRoot "dist\BookLibraryBuilder.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "Build finished without producing $exe"
 }
-$process = Start-Process -FilePath $exe -ArgumentList "--smoke-test" -Wait -PassThru -WindowStyle Hidden
-if ($process.ExitCode -ne 0) {
-    throw "Packaged smoke test failed with exit code $($process.ExitCode)"
+$previousSmokeMode = $env:BOOKBUILDER_SMOKE_TEST
+try {
+    $env:BOOKBUILDER_SMOKE_TEST = "1"
+    $process = Start-Process -FilePath $exe -ArgumentList "--smoke-test" -Wait -PassThru -WindowStyle Hidden
+    if ($process.ExitCode -ne 0) {
+        throw "Packaged smoke test failed with exit code $($process.ExitCode)"
+    }
+}
+finally {
+    if ($null -eq $previousSmokeMode) {
+        Remove-Item Env:\BOOKBUILDER_SMOKE_TEST -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:BOOKBUILDER_SMOKE_TEST = $previousSmokeMode
+    }
 }
 
 Write-Host "Build and smoke test succeeded: $exe"

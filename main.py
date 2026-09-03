@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from bookbuilder import __version__
@@ -35,7 +36,7 @@ def main() -> int:
         if sys.stdout is not None:
             print(__version__)
         return 0
-    if args.smoke_test:
+    if args.smoke_test or os.environ.get("BOOKBUILDER_SMOKE_TEST") == "1":
         return smoke_test()
     from bookbuilder.gui import run
 

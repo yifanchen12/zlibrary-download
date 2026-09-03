@@ -22,6 +22,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from .config import Settings, app_data_dir
 from .models import Book
+from .source_discovery import redirected_managed_source
 from .utils import parse_size, safe_filename, unique_path
 
 
@@ -192,6 +193,15 @@ class BrowserController:
             time.sleep(wait)
         self._last_request = time.monotonic()
 
+    def _adopt_redirected_source(self) -> None:
+        assert self.driver is not None
+        redirected = redirected_managed_source(self.settings.base_url, self.driver.current_url)
+        if redirected is None:
+            return
+        self.settings.base_url = redirected
+        self.settings.source_checked_at = time.time()
+        self.settings.save()
+
     def _navigate(self, url: str, selector: str | None = None) -> None:
         self.start()
         assert self.driver is not None
@@ -211,6 +221,7 @@ class BrowserController:
             ) from error
         except WebDriverException as error:
             raise BrowserError(navigation_error_message(url, error)) from error
+        self._adopt_redirected_source()
 
         def ready(driver: webdriver.Chrome) -> bool:
             html = driver.page_source

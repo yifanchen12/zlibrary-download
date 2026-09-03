@@ -14,6 +14,7 @@ Windows 桌面端的授权书籍检索、下载与模糊建库工具。项目使
 - **模糊建库**：根据主题、附加关键词和 0–100 匹配阈值筛选结果，可限制 PDF/EPUB 等格式、最大检索页数和目标容量。
 - **任务控制**：批量任务支持暂停、继续和停止；停止/暂停在当前文件完成或当前安全检查点生效。
 - **请求节制**：默认串行处理并使用 3 秒请求间隔；目标磁盘保留 512 MiB 安全余量；站点限额、超时和空间不足会写入历史记录。
+- **入口自动发现**：启动后最多每 6 小时读取一次仓库维护的公开入口清单；通过 HTTPS 与域名校验后自动填充并保存新入口，同时识别受信任的站点跳转。
 - **无窗口浏览器**：Chrome 固定使用原生 `--headless=new` 模式运行，不创建桌面窗口；自动化会话使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置。
 - **本地化界面**：蓝白高科技主题，页眉包含芙宁娜主题装饰图；EXE 使用 `assets/app_icon.ico` 的水滴与开放书本图标。
 
@@ -78,13 +79,15 @@ dist\BookLibraryBuilder.exe
 %LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\
 ```
 
-设置文件包含来源地址、目录、超时和授权确认状态；历史数据库包含上述元数据和本地文件路径。程序不会内置遥测、广告 SDK 或远程统计服务。
+设置文件包含来源地址、自动检测状态、最近检测时间、目录、超时和授权确认状态；历史数据库包含上述元数据和本地文件路径。程序不会内置遥测、广告 SDK 或远程统计服务。
 
 ## 常见故障
 
 ### 旧站点入口迁移
 
 默认站点入口已更新为 `https://z-library.biz`。从 `v1.2.2` 开始，程序加载设置时会将原默认入口 `https://z-library.bz` 自动迁移到新域名；用户自行配置的其他来源地址保持不变。
+
+从 `v1.3.0` 开始，应用还会在后台读取仓库根目录的 [`source_registry.json`](source_registry.json)，最多每 6 小时检测一次项目维护的新入口。检测结果通过 HTTPS、域名、端口和清单结构校验后才会自动保存；也可以在“设置与授权”中关闭自动检测或点击“立即检测新入口”。自定义来源地址不会被远程清单覆盖。
 
 ### `ERR_CONNECTION_TIMED_OUT`
 
@@ -99,7 +102,7 @@ dist\BookLibraryBuilder.exe
 
 ## 安全与隐私声明
 
-1. **数据流向**：检索词、详情页请求和下载请求会发送至设置页中的来源地址；除该来源和用户主动访问的站点外，程序不设计额外的数据上报通道。
+1. **数据流向**：检索词、详情页请求和下载请求会发送至设置页中的来源地址。启用入口自动检测时，程序最多每 6 小时从 `raw.githubusercontent.com/yifanchen12/zlibrary-download` 获取公开的 `source_registry.json`；该请求不包含检索词、下载历史、Cookie、令牌或本地路径。
 2. **浏览器会话**：独立 Chrome 配置目录可能包含用户主动登录后产生的 Cookie、缓存或站点存储。请将该目录视为敏感数据，不要复制到公共仓库或共享压缩包。
 3. **凭据保护**：程序不要求提交密码、API Token 或私钥；仓库、日志和问题报告中不得粘贴任何凭据、Cookie、完整 URL 中的令牌或个人路径。
 4. **文件安全**：下载文件来自外部站点，应按不可信输入处理。打开前请使用本机安全软件扫描，不要执行电子书压缩包中的脚本、宏或可执行文件。
@@ -117,17 +120,19 @@ bookbuilder/browser.py  Chrome 生命周期、页面解析和下载等待
 bookbuilder/services.py 下载服务与模糊建库调度器
 bookbuilder/database.py SQLite 历史记录
 bookbuilder/config.py   设置与本地数据目录
+bookbuilder/source_discovery.py 远程入口清单校验与安全跳转识别
 bookbuilder/gui.py      Tkinter 用户界面
 bookbuilder/models.py   数据模型
 bookbuilder/utils.py    文件名、大小和匹配工具
 assets/                 EXE 图标与页眉装饰资源
 tests/                  单元测试和 HTML fixture
+source_registry.json    项目维护的当前站点入口清单
 ```
 
 ## 版本与发布
 
-- 当前版本：`1.2.2`
-- Windows 发布包：[BookLibraryBuilder.exe v1.2.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.2)
+- 当前版本：`1.3.0`
+- Windows 发布包：[BookLibraryBuilder.exe v1.3.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.0)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。

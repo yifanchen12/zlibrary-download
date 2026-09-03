@@ -12,6 +12,8 @@ LEGACY_BASE_URLS = {"https://z-library.bz"}
 
 
 def normalize_base_url(value: str) -> str:
+    if not isinstance(value, str):
+        return DEFAULT_BASE_URL
     normalized = value.strip().rstrip("/")
     if normalized.casefold() in LEGACY_BASE_URLS:
         return DEFAULT_BASE_URL
@@ -39,6 +41,8 @@ class Settings:
     page_timeout: int = 120
     download_timeout: int = 3600
     authorization_confirmed: bool = False
+    auto_update_source: bool = True
+    source_checked_at: float = 0.0
 
     @classmethod
     def load(cls) -> "Settings":
@@ -52,6 +56,12 @@ class Settings:
             if not settings.output_dir:
                 settings.output_dir = str(default_download_dir())
             settings.base_url = normalize_base_url(settings.base_url)
+            if not isinstance(settings.auto_update_source, bool):
+                settings.auto_update_source = True
+            try:
+                settings.source_checked_at = float(settings.source_checked_at)
+            except (TypeError, ValueError):
+                settings.source_checked_at = 0.0
             return settings
         except (OSError, ValueError, TypeError):
             return cls(output_dir=str(default_download_dir()))

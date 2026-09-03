@@ -13,6 +13,14 @@ from bookbuilder.browser import BrowserController, navigation_error_message
 from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
+from bookbuilder.source_discovery import (
+    SourceDiscoveryError,
+    discover_preferred_source,
+    managed_source_origin,
+    preferred_url_from_manifest,
+    redirected_managed_source,
+    source_check_due,
+)
 from bookbuilder.utils import fuzzy_score, human_size, parse_size, safe_filename, split_keywords
 
 
@@ -69,6 +77,57 @@ class SettingsTests(unittest.TestCase):
 
     def test_custom_source_is_preserved(self) -> None:
         self.assertEqual(normalize_base_url("https://books.example/"), "https://books.example")
+
+
+class SourceDiscoveryTests(unittest.TestCase):
+    def test_manifest_accepts_managed_https_origin(self) -> None:
+        preferred, updated_at = preferred_url_from_manifest(
+            {
+                "schema_version": 1,
+                "updated_at": "2026-09-03",
+                "preferred_base_url": "https://z-library.biz/",
+            }
+        )
+        self.assertEqual(preferred, "https://z-library.biz")
+        self.assertEqual(updated_at, "2026-09-03")
+
+    def test_manifest_rejects_unrelated_or_insecure_source(self) -> None:
+        for value in ("http://z-library.biz", "https://example.com"):
+            with self.subTest(value=value), self.assertRaises(SourceDiscoveryError):
+                preferred_url_from_manifest({"schema_version": 1, "preferred_base_url": value})
+
+    def test_managed_source_and_redirect_detection(self) -> None:
+        self.assertEqual(managed_source_origin("https://z-library.biz/s/?q=test"), "https://z-library.biz")
+        self.assertEqual(
+            redirected_managed_source("https://z-library.bz", "https://z-library.biz/s/?q=test"),
+            "https://z-library.biz",
+        )
+        self.assertIsNone(redirected_managed_source("https://books.example", "https://z-library.biz"))
+
+    def test_source_check_interval(self) -> None:
+        self.assertTrue(source_check_due(0, now=100))
+        self.assertFalse(source_check_due(99, now=100))
+
+    @patch("bookbuilder.source_discovery.requests.get")
+    def test_remote_registry_updates_managed_source(self, request_get: object) -> None:
+        response = request_get.return_value  # type: ignore[attr-defined]
+        response.content = b"{}"
+        response.json.return_value = {
+            "schema_version": 1,
+            "updated_at": "2026-09-03",
+            "preferred_base_url": "https://z-library.biz",
+        }
+        result = discover_preferred_source("https://z-library.sk")
+        self.assertTrue(result.changed)
+        self.assertEqual(result.preferred_url, "https://z-library.biz")
+        response.raise_for_status.assert_called_once_with()
+
+    @patch("bookbuilder.source_discovery.requests.get")
+    def test_remote_registry_does_not_check_custom_source(self, request_get: object) -> None:
+        result = discover_preferred_source("https://books.example")
+        self.assertFalse(result.managed_source)
+        self.assertFalse(result.changed)
+        request_get.assert_not_called()  # type: ignore[attr-defined]
 
 
 class ParserTests(unittest.TestCase):
