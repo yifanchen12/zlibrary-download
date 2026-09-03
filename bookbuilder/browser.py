@@ -235,7 +235,9 @@ class BrowserController:
         except WebDriverException as error:
             raise BrowserError(navigation_error_message(url, error)) from error
         if "try again later or contact us" in self.driver.page_source.lower():
-            raise BrowserError("站点暂时拒绝详情请求，请稍后再试或降低请求频率。")
+            raise BrowserError(
+                "站点访问检查未通过。请确认设置中的站点入口有效；若普通浏览器可以访问，请稍后重试或更换网络节点。"
+            )
 
     def search(self, query: str, page: int = 1) -> list[Book]:
         params = f"q={quote_plus(query)}"

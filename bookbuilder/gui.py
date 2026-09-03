@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from .browser import BrowserController, BrowserError
-from .config import Settings
+from .config import Settings, normalize_base_url
 from .database import HistoryDatabase
 from .models import BatchOptions, Book
 from .services import DownloadService, LibraryBuilder
@@ -693,7 +693,8 @@ class BookBuilderApp:
             messagebox.showwarning("参数错误", "间隔和超时必须为有效数字。")
             return
         self.settings.output_dir = self.setting_output.get().strip() or self.settings.output_dir
-        self.settings.base_url = self.setting_base.get().strip().rstrip("/") or "https://z-library.bz"
+        self.settings.base_url = normalize_base_url(self.setting_base.get())
+        self.setting_base.set(self.settings.base_url)
         self.settings.request_delay = delay
         self.settings.page_timeout = page_timeout
         self.settings.download_timeout = download_timeout

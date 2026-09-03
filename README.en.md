@@ -82,6 +82,10 @@ The settings file stores the source URL, directories, timeouts, and authorizatio
 
 ## Troubleshooting
 
+### Legacy source migration
+
+The default source is now `https://z-library.biz`. Starting with `v1.2.2`, the application automatically migrates the former default `https://z-library.bz` when loading existing settings. Other user-configured source URLs remain unchanged.
+
 ### `ERR_CONNECTION_TIMED_OUT`
 
 This error means that Chrome and ChromeDriver started successfully, but the background browser could not connect to the configured source. It does not indicate a driver-version mismatch. Check the following in order:
@@ -122,8 +126,8 @@ tests/                  Unit tests and HTML fixtures
 
 ## Version and release
 
-- Current version: `1.2.1`
-- Windows package: [BookLibraryBuilder.exe v1.2.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.1)
+- Current version: `1.2.2`
+- Windows package: [BookLibraryBuilder.exe v1.2.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.2)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.

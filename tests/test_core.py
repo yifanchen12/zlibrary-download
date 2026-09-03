@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from selenium.common.exceptions import WebDriverException
 
 from bookbuilder.browser import BrowserController, navigation_error_message
-from bookbuilder.config import Settings
+from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
 from bookbuilder.utils import fuzzy_score, human_size, parse_size, safe_filename, split_keywords
@@ -46,6 +49,26 @@ class UtilityTests(unittest.TestCase):
         score = fuzzy_score("人工智能", book, split_keywords("教材, 导论"))
         self.assertGreaterEqual(score, 70)
         self.assertLess(fuzzy_score("园艺", book), 30)
+
+
+class SettingsTests(unittest.TestCase):
+    def test_legacy_source_is_migrated(self) -> None:
+        self.assertEqual(normalize_base_url("https://z-library.bz/"), DEFAULT_BASE_URL)
+
+    def test_load_migrates_existing_legacy_setting(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            app_dir = Path(directory) / "AuthorizedBookBuilder"
+            app_dir.mkdir()
+            (app_dir / "settings.json").write_text(
+                json.dumps({"output_dir": directory, "base_url": "https://z-library.bz"}),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+                settings = Settings.load()
+            self.assertEqual(settings.base_url, DEFAULT_BASE_URL)
+
+    def test_custom_source_is_preserved(self) -> None:
+        self.assertEqual(normalize_base_url("https://books.example/"), "https://books.example")
 
 
 class ParserTests(unittest.TestCase):

@@ -82,6 +82,10 @@ dist\BookLibraryBuilder.exe
 
 ## 常见故障
 
+### 旧站点入口迁移
+
+默认站点入口已更新为 `https://z-library.biz`。从 `v1.2.2` 开始，程序加载设置时会将原默认入口 `https://z-library.bz` 自动迁移到新域名；用户自行配置的其他来源地址保持不变。
+
 ### `ERR_CONNECTION_TIMED_OUT`
 
 该错误表示 Chrome 和 ChromeDriver 已经启动，但后台浏览器未能连接到设置中的站点入口，并不表示驱动版本不兼容。请依次检查：
@@ -122,8 +126,8 @@ tests/                  单元测试和 HTML fixture
 
 ## 版本与发布
 
-- 当前版本：`1.2.1`
-- Windows 发布包：[BookLibraryBuilder.exe v1.2.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.1)
+- 当前版本：`1.2.2`
+- Windows 发布包：[BookLibraryBuilder.exe v1.2.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.2)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。

@@ -7,6 +7,15 @@ from pathlib import Path
 
 
 APP_NAME = "AuthorizedBookBuilder"
+DEFAULT_BASE_URL = "https://z-library.biz"
+LEGACY_BASE_URLS = {"https://z-library.bz"}
+
+
+def normalize_base_url(value: str) -> str:
+    normalized = value.strip().rstrip("/")
+    if normalized.casefold() in LEGACY_BASE_URLS:
+        return DEFAULT_BASE_URL
+    return normalized or DEFAULT_BASE_URL
 
 
 def app_data_dir() -> Path:
@@ -25,7 +34,7 @@ def default_download_dir() -> Path:
 @dataclass(slots=True)
 class Settings:
     output_dir: str = ""
-    base_url: str = "https://z-library.bz"
+    base_url: str = DEFAULT_BASE_URL
     request_delay: float = 3.0
     page_timeout: int = 120
     download_timeout: int = 3600
@@ -42,6 +51,7 @@ class Settings:
             settings = cls(**allowed)
             if not settings.output_dir:
                 settings.output_dir = str(default_download_dir())
+            settings.base_url = normalize_base_url(settings.base_url)
             return settings
         except (OSError, ValueError, TypeError):
             return cls(output_dir=str(default_download_dir()))
