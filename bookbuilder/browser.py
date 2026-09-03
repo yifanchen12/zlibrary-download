@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Callable
-from urllib.parse import quote_plus, urljoin
+from urllib.parse import quote_plus, urljoin, urlsplit
 
 import requests
 from bs4 import BeautifulSoup
@@ -27,6 +27,41 @@ from .utils import parse_size, safe_filename, unique_path
 
 class BrowserError(RuntimeError):
     pass
+
+
+_NETWORK_ERROR_MESSAGES = {
+    "ERR_CONNECTION_TIMED_OUT": "连接目标站点超时",
+    "ERR_NAME_NOT_RESOLVED": "目标站点域名解析失败",
+    "ERR_CONNECTION_REFUSED": "目标站点拒绝连接",
+    "ERR_INTERNET_DISCONNECTED": "当前设备未连接到网络",
+    "ERR_NETWORK_CHANGED": "访问过程中网络连接发生变化",
+    "ERR_PROXY_CONNECTION_FAILED": "系统代理连接失败",
+    "ERR_TUNNEL_CONNECTION_FAILED": "代理隧道建立失败",
+    "ERR_SSL_PROTOCOL_ERROR": "目标站点的 TLS/SSL 连接失败",
+    "ERR_CERT_DATE_INVALID": "目标站点证书日期无效",
+    "ERR_CERT_AUTHORITY_INVALID": "目标站点证书不受信任",
+}
+
+
+def navigation_error_message(url: str, error: WebDriverException) -> str:
+    """Convert Chrome navigation failures into a short actionable message.
+
+    Selenium's default string representation contains a native stack trace. It is
+    useful to developers but confusing in the desktop UI, and can include a full
+    query URL. Only the origin and the Chrome network error code are surfaced here.
+    """
+
+    raw = getattr(error, "msg", "") or str(error)
+    host = urlsplit(url).netloc or "设置中的站点入口"
+    match = re.search(r"net::(ERR_[A-Z0-9_]+)", raw)
+    code = match.group(1) if match else ""
+    reason = _NETWORK_ERROR_MESSAGES.get(code, "Chrome 打开目标页面失败")
+    code_suffix = f"（{code}）" if code else ""
+    return (
+        f"{reason}{code_suffix}：{host}\n\n"
+        "Chrome 与自动化驱动已经正常启动，但后台浏览器无法访问该站点。请先用普通浏览器测试“设置与授权”中的站点入口；"
+        "如果普通浏览器依赖代理或 VPN 扩展，后台独立 Chrome 不会继承该扩展，请改用系统代理或可直连网络后重试。"
+    )
 
 
 def find_chrome() -> Path:
@@ -161,7 +196,21 @@ class BrowserController:
         self.start()
         assert self.driver is not None
         self._throttle()
-        self.driver.get(url)
+        self.driver.set_page_load_timeout(max(20, self.settings.page_timeout))
+        try:
+            self.driver.get(url)
+        except TimeoutException as error:
+            try:
+                self.driver.execute_script("window.stop();")
+            except WebDriverException:
+                pass
+            host = urlsplit(url).netloc or "设置中的站点入口"
+            raise BrowserError(
+                f"页面加载超过 {max(20, self.settings.page_timeout)} 秒：{host}\n\n"
+                "请先用普通浏览器测试站点入口，并检查当前网络、系统代理或 VPN 状态。"
+            ) from error
+        except WebDriverException as error:
+            raise BrowserError(navigation_error_message(url, error)) from error
 
         def ready(driver: webdriver.Chrome) -> bool:
             html = driver.page_source
@@ -180,7 +229,11 @@ class BrowserController:
         try:
             WebDriverWait(self.driver, self.settings.page_timeout, poll_frequency=1).until(ready)
         except TimeoutException as error:
-            raise BrowserError("页面加载超时；可在设置中显示浏览器后手动查看站点提示。") from error
+            raise BrowserError(
+                "页面已打开，但在等待时间内未发现可解析的内容。站点可能正在进行访问检查、页面结构已经变化，或当前网络响应过慢。"
+            ) from error
+        except WebDriverException as error:
+            raise BrowserError(navigation_error_message(url, error)) from error
         if "try again later or contact us" in self.driver.page_source.lower():
             raise BrowserError("站点暂时拒绝详情请求，请稍后再试或降低请求频率。")
 

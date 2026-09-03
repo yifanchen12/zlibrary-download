@@ -80,6 +80,19 @@ For an approximately 50 GB PDF collection on artificial intelligence, start with
 
 The settings file stores the source URL, directories, timeouts, and authorization acknowledgement. The history database stores the metadata and local paths described above. The application has no built-in telemetry, advertising SDK, or remote analytics service.
 
+## Troubleshooting
+
+### `ERR_CONNECTION_TIMED_OUT`
+
+This error means that Chrome and ChromeDriver started successfully, but the background browser could not connect to the configured source. It does not indicate a driver-version mismatch. Check the following in order:
+
+1. Open the source configured under **Settings and authorization** in a regular browser.
+2. Verify the system network, DNS, proxy, and VPN state.
+3. If regular Chrome relies on a proxy or VPN extension, note that this application uses an isolated headless Chrome profile and does not inherit personal browser extensions. Use a system proxy or a directly connected network instead.
+4. Confirm that the source is still the valid HTTPS entry supplied by its administrator, save the corrected setting, and retry.
+
+Common Chrome network failures now produce a concise diagnostic instead of placing the native ChromeDriver stack trace in the dialog or status bar. When opening an issue, include the application version, error code, and source hostname, but do not upload cookies, tokens, complete query URLs, or personal paths.
+
 ## Security and privacy statement
 
 1. **Data flow:** Search terms, detail-page requests, and downloads are sent to the source URL configured in the application. The program has no designed reporting channel beyond that source and sites the user explicitly visits.
@@ -109,8 +122,8 @@ tests/                  Unit tests and HTML fixtures
 
 ## Version and release
 
-- Current version: `1.2.0`
-- Windows package: [BookLibraryBuilder.exe v1.2.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.0)
+- Current version: `1.2.1`
+- Windows package: [BookLibraryBuilder.exe v1.2.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.1)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.

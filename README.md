@@ -80,6 +80,19 @@ dist\BookLibraryBuilder.exe
 
 设置文件包含来源地址、目录、超时和授权确认状态；历史数据库包含上述元数据和本地文件路径。程序不会内置遥测、广告 SDK 或远程统计服务。
 
+## 常见故障
+
+### `ERR_CONNECTION_TIMED_OUT`
+
+该错误表示 Chrome 和 ChromeDriver 已经启动，但后台浏览器未能连接到设置中的站点入口，并不表示驱动版本不兼容。请依次检查：
+
+1. 使用普通浏览器直接打开“设置与授权”页所填写的站点入口；
+2. 检查系统网络、DNS、代理或 VPN 是否可用；
+3. 若普通 Chrome 依赖代理/VPN 扩展访问，需注意本工具使用隔离的无窗口 Chrome 配置，不会继承个人浏览器扩展；请使用系统代理或可直连网络；
+4. 核对站点入口是否仍为管理员提供的有效 HTTPS 地址，修改后保存设置并重新检索。
+
+从本版本开始，常见 Chrome 网络错误会显示简短的中文诊断，不再把 ChromeDriver 原生堆栈写入弹窗或状态栏。提交问题时请提供应用版本、错误码和站点域名，不要上传 Cookie、令牌、完整查询 URL 或个人路径。
+
 ## 安全与隐私声明
 
 1. **数据流向**：检索词、详情页请求和下载请求会发送至设置页中的来源地址；除该来源和用户主动访问的站点外，程序不设计额外的数据上报通道。
@@ -109,8 +122,8 @@ tests/                  单元测试和 HTML fixture
 
 ## 版本与发布
 
-- 当前版本：`1.2.0`
-- Windows 发布包：[BookLibraryBuilder.exe v1.2.0](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.0)
+- 当前版本：`1.2.1`
+- Windows 发布包：[BookLibraryBuilder.exe v1.2.1](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.2.1)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。

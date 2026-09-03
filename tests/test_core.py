@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bookbuilder.browser import BrowserController
+from selenium.common.exceptions import WebDriverException
+
+from bookbuilder.browser import BrowserController, navigation_error_message
 from bookbuilder.config import Settings
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
@@ -57,6 +59,23 @@ class ParserTests(unittest.TestCase):
         self.assertIn("--headless=new", arguments)
         self.assertIn("--window-size=1440,1200", arguments)
         self.assertNotIn("--start-minimized", arguments)
+
+    def test_navigation_timeout_message_is_actionable_and_has_no_stacktrace(self) -> None:
+        error = WebDriverException(
+            "unknown error: net::ERR_CONNECTION_TIMED_OUT\n"
+            "  (Session info: chrome=151.0.7922.174)\nStacktrace:\nchromedriver!GetHandleVerifier"
+        )
+        message = navigation_error_message("https://example.invalid/s/?q=private-query", error)
+        self.assertIn("连接目标站点超时", message)
+        self.assertIn("ERR_CONNECTION_TIMED_OUT", message)
+        self.assertIn("example.invalid", message)
+        self.assertNotIn("private-query", message)
+        self.assertNotIn("Stacktrace", message)
+
+    def test_navigation_dns_message(self) -> None:
+        error = WebDriverException("unknown error: net::ERR_NAME_NOT_RESOLVED")
+        message = navigation_error_message("https://example.invalid", error)
+        self.assertIn("域名解析失败", message)
 
     def test_search_card(self) -> None:
         fixture = Path(__file__).parent / "fixtures" / "search.html"
