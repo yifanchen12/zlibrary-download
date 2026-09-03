@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-当前维护版本为 `1.3.0`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
+当前维护版本为 `1.3.1`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
 
 ## 漏洞报告
 
@@ -28,8 +28,8 @@
 
 ## 设计说明
 
-应用没有内置遥测、广告 SDK 或远程统计服务；检索词、详情页请求和下载请求会发送至用户在设置中指定的来源。启用入口自动检测时，应用最多每 6 小时从本项目的 GitHub 原始内容域名读取一次公开入口清单，请求中不包含用户检索词、Cookie、历史记录、令牌或本地路径。应用使用原生无窗口 Chrome 模式和独立配置目录，不读取用户个人 Chrome 配置；正常下载流程不会覆盖或删除既有文件。
+应用没有内置遥测、广告 SDK 或远程统计服务；检索词、详情页请求和下载请求会发送至用户在设置中指定的来源。启用入口自动检测时，应用最多每 6 小时从本项目的 GitHub 原始内容域名读取一次公开入口清单，请求中不包含用户检索词、Cookie、历史记录、令牌或本地路径。应用优先使用原生无窗口 Chrome；站点拒绝该模式时，可自动改用最小化的普通 Chrome。两种模式均使用独立配置目录，不读取用户个人 Chrome 配置；正常下载流程不会覆盖或删除既有文件。
 
 ---
 
-The current maintained version is `1.3.0`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated headless Chrome profile.
+The current maintained version is `1.3.1`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated Chrome profile in both headless and minimized compatibility modes.

@@ -40,6 +40,13 @@ PALETTE = {
     "danger": "#E05272",
 }
 
+BROWSER_MODE_LABELS = {
+    "auto": "自动兼容（推荐）",
+    "headless": "完全无窗口",
+    "compatibility": "兼容模式（最小化 Chrome）",
+}
+BROWSER_MODE_VALUES = {label: value for value, label in BROWSER_MODE_LABELS.items()}
+
 
 def resource_path(relative: str) -> Path:
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
@@ -446,6 +453,9 @@ class BookBuilderApp:
         self.setting_download_timeout = tk.IntVar(value=self.settings.download_timeout)
         self.setting_authorized = tk.BooleanVar(value=self.settings.authorization_confirmed)
         self.setting_auto_source = tk.BooleanVar(value=self.settings.auto_update_source)
+        self.setting_browser_mode = tk.StringVar(
+            value=BROWSER_MODE_LABELS.get(self.settings.browser_mode, BROWSER_MODE_LABELS["auto"])
+        )
         labels = (
             ("默认下载目录", self.setting_output),
             ("站点入口", self.setting_base),
@@ -456,18 +466,25 @@ class BookBuilderApp:
         for row, (label, variable) in enumerate(labels):
             ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=6)
             ttk.Entry(frame, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=6)
+        ttk.Label(frame, text="浏览器模式").grid(row=5, column=0, sticky="w", padx=(0, 10), pady=6)
+        ttk.Combobox(
+            frame,
+            textvariable=self.setting_browser_mode,
+            values=tuple(BROWSER_MODE_LABELS.values()),
+            state="readonly",
+        ).grid(row=5, column=1, sticky="ew", pady=6)
         ttk.Checkbutton(
             frame,
             text="启动时自动检测并填充项目维护的新站点入口",
             variable=self.setting_auto_source,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=6)
+        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=6)
         ttk.Checkbutton(
             frame,
             text="我确认仅下载已获授权、开放许可或公版内容，并遵守来源站点规则",
             variable=self.setting_authorized,
-        ).grid(row=6, column=0, columnspan=2, sticky="w", pady=6)
+        ).grid(row=7, column=0, columnspan=2, sticky="w", pady=6)
         buttons = ttk.Frame(frame)
-        buttons.grid(row=7, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        buttons.grid(row=8, column=0, columnspan=2, sticky="w", pady=(10, 0))
         ttk.Button(buttons, text="保存设置", style="Accent.TButton", command=self._save_settings).pack(side="left")
         self.source_check_button = ttk.Button(
             buttons,
@@ -477,11 +494,11 @@ class BookBuilderApp:
         self.source_check_button.pack(side="left", padx=8)
         self.source_status = tk.StringVar(value="尚未检测远程入口清单")
         ttk.Label(frame, textvariable=self.source_status, style="Hint.TLabel").grid(
-            row=8, column=0, columnspan=2, sticky="w", pady=(8, 0)
+            row=9, column=0, columnspan=2, sticky="w", pady=(8, 0)
         )
         ttk.Label(
             self.settings_tab,
-            text="说明：Chrome 始终以无窗口后台模式运行；程序只启用一个下载任务，“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
+            text="说明：自动兼容模式先使用无窗口 Chrome；若站点拒绝该模式，则改用最小化的普通 Chrome。程序只启用一个下载任务，“暂停”会在当前文件完成后生效。历史数据库和浏览器专用配置位于本机 LocalAppData。",
             style="Hint.TLabel",
             wraplength=900,
         ).pack(anchor="w", pady=14)
@@ -765,10 +782,15 @@ class BookBuilderApp:
         self.settings.download_timeout = download_timeout
         self.settings.authorization_confirmed = bool(self.setting_authorized.get())
         self.settings.auto_update_source = bool(self.setting_auto_source.get())
+        previous_browser_mode = self.settings.browser_mode
+        self.settings.browser_mode = BROWSER_MODE_VALUES.get(self.setting_browser_mode.get(), "auto")
+        if self.settings.browser_mode != previous_browser_mode:
+            self.browser.apply_configured_mode()
         self.settings.save()
         self.search_output.set(self.settings.output_dir)
         self.batch_output.set(self.settings.output_dir)
-        messagebox.showinfo("已保存", "设置已保存。Chrome 将继续以无窗口后台模式运行。")
+        mode_label = BROWSER_MODE_LABELS[self.settings.browser_mode]
+        messagebox.showinfo("已保存", f"设置已保存。浏览器模式：{mode_label}。")
 
     def _process_messages(self) -> None:
         try:
@@ -791,6 +813,8 @@ class BookBuilderApp:
                             values=(book.title, book.author, book.publisher, book.year, book.language, book.file_format, human_size(book.size_bytes)),
                         )
                     self.search_status.set(f"找到 {len(books)} 条可见结果")
+                    if self.settings.browser_mode == "auto" and self.browser.runtime_mode == "compatibility":
+                        self.global_status.set("站点拒绝完全无窗口模式，已自动改用最小化兼容模式。")
                 elif event == "single_progress":
                     current, total, title = payload
                     if total:

@@ -30,6 +30,10 @@ class BrowserError(RuntimeError):
     pass
 
 
+class AccessCheckError(BrowserError):
+    pass
+
+
 _NETWORK_ERROR_MESSAGES = {
     "ERR_CONNECTION_TIMED_OUT": "连接目标站点超时",
     "ERR_NAME_NOT_RESOLVED": "目标站点域名解析失败",
@@ -98,11 +102,11 @@ def _bundled_driver() -> Path | None:
 
 
 class BrowserController:
-    """Launches an isolated headless Chrome session through Chrome DevTools.
+    """Launch an isolated Chrome session through Chrome DevTools.
 
-    Chrome runs in native ``--headless=new`` mode, so the source page can execute its
-    normal JavaScript without creating a desktop window. A dedicated profile keeps the
-    automation session isolated from the user's personal Chrome profile.
+    Automatic mode starts with native ``--headless=new`` and retries in a minimized
+    compatibility window only when the source rejects headless Chrome. A dedicated
+    profile keeps both modes isolated from the user's personal Chrome profile.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -110,12 +114,18 @@ class BrowserController:
         self.driver: webdriver.Chrome | None = None
         self.process: subprocess.Popen[bytes] | None = None
         self._last_request = 0.0
+        self.runtime_mode = "compatibility" if settings.browser_mode == "compatibility" else "headless"
+
+    def apply_configured_mode(self) -> None:
+        """Restart on the next request using the mode selected in settings."""
+
+        self.close()
+        self.runtime_mode = "compatibility" if self.settings.browser_mode == "compatibility" else "headless"
 
     @staticmethod
-    def _launch_arguments(chrome: Path, profile: Path, port: int) -> list[str]:
-        return [
+    def _launch_arguments(chrome: Path, profile: Path, port: int, mode: str = "headless") -> list[str]:
+        arguments = [
             str(chrome),
-            "--headless=new",
             "--window-size=1440,1200",
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile}",
@@ -125,6 +135,11 @@ class BrowserController:
             "--remote-allow-origins=*",
             "about:blank",
         ]
+        if mode == "compatibility":
+            arguments.insert(1, "--start-minimized")
+        else:
+            arguments.insert(1, "--headless=new")
+        return arguments
 
     def start(self) -> None:
         if self.driver:
@@ -133,7 +148,7 @@ class BrowserController:
         profile = app_data_dir() / "chrome-profile"
         profile.mkdir(parents=True, exist_ok=True)
         port = _free_port()
-        args = self._launch_arguments(chrome, profile, port)
+        args = self._launch_arguments(chrome, profile, port, self.runtime_mode)
         creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.process = subprocess.Popen(
             args,
@@ -246,8 +261,8 @@ class BrowserController:
         except WebDriverException as error:
             raise BrowserError(navigation_error_message(url, error)) from error
         if "try again later or contact us" in self.driver.page_source.lower():
-            raise BrowserError(
-                "站点访问检查未通过。请确认设置中的站点入口有效；若普通浏览器可以访问，请稍后重试或更换网络节点。"
+            raise AccessCheckError(
+                "站点访问检查未通过。自动兼容模式会改用最小化的普通 Chrome 重试；若仍失败，请稍后重试或更换网络节点。"
             )
 
     def search(self, query: str, page: int = 1) -> list[Book]:
@@ -255,19 +270,28 @@ class BrowserController:
         if page > 1:
             params += f"&page={page}"
         url = f"{self.settings.base_url.rstrip('/')}/s/?{params}"
-        self._navigate(url, ".resItemBoxBooks")
+        try:
+            self._navigate(url, ".resItemBoxBooks")
+        except AccessCheckError:
+            if self.settings.browser_mode != "auto" or self.runtime_mode == "compatibility":
+                raise
+            self.close()
+            self.runtime_mode = "compatibility"
+            self._navigate(url, ".resItemBoxBooks")
         assert self.driver is not None
-        return self.parse_search_html(self.driver.page_source)
+        return self.parse_search_html(self.driver.page_source, self.driver.current_url)
 
     @staticmethod
-    def parse_search_html(html: str) -> list[Book]:
+    def parse_search_html(html: str, base_url: str = "") -> list[Book]:
         soup = BeautifulSoup(html, "html.parser")
         results: list[Book] = []
         for card in soup.select(".resItemBoxBooks"):
-            title_node = card.select_one(".book-title a")
+            component = card.select_one("z-bookcard")
+            title_node = card.select_one(".book-title a") or card.select_one('z-bookcard [slot="title"]')
             if not title_node:
                 continue
-            detail_url = card.get("data-url") or title_node.get("href") or ""
+            detail_url = card.get("data-url") or title_node.get("href") or (component.get("href") if component else "") or ""
+            detail_url = urljoin(base_url, detail_url) if base_url else detail_url
             identifier = re.search(r"/book/([^/]+)", detail_url)
             if not identifier:
                 continue
@@ -278,25 +302,32 @@ class BrowserController:
                 if label:
                     label.extract()
                 metadata[key] = " ".join(item.get_text(" ", strip=True).split())
-            file_text = metadata.get("file", "")
-            file_format = file_text.split(",", 1)[0].strip().upper() if file_text else ""
-            cover = card.select_one(".b-cover img")
+            file_text = component.get("filesize", "") if component else metadata.get("file", "")
+            if component:
+                file_format = component.get("extension", "").strip().upper()
+            else:
+                file_format = file_text.split(",", 1)[0].strip().upper() if file_text else ""
+            cover = card.select_one(".b-cover img") or card.select_one("z-bookcard img")
+            cover_url = (cover.get("src") or cover.get("data-src") or "") if cover else ""
+            if base_url and cover_url:
+                cover_url = urljoin(base_url, cover_url)
+            author_node = card.select_one(".book-author") or card.select_one('z-bookcard [slot="author"]')
+            publisher = component.get("publisher", "") if component else ""
+            if not publisher:
+                publisher_node = card.select_one(".book-publisher")
+                publisher = publisher_node.get_text(" ", strip=True) if publisher_node else ""
             results.append(
                 Book(
                     source_id=identifier.group(1),
                     title=" ".join(title_node.get_text(" ", strip=True).split()),
-                    author=" ".join((card.select_one(".book-author") or {}).get_text(" ", strip=True).split())
-                    if card.select_one(".book-author")
-                    else "",
-                    publisher=" ".join((card.select_one(".book-publisher") or {}).get_text(" ", strip=True).split())
-                    if card.select_one(".book-publisher")
-                    else "",
-                    year=metadata.get("year", ""),
-                    language=metadata.get("language", ""),
+                    author=" ".join(author_node.get_text(" ", strip=True).split()) if author_node else "",
+                    publisher=" ".join(publisher.split()),
+                    year=component.get("year", "") if component else metadata.get("year", ""),
+                    language=component.get("language", "") if component else metadata.get("language", ""),
                     file_format=file_format,
                     size_bytes=parse_size(file_text),
                     detail_url=detail_url,
-                    cover_url=cover.get("src", "") if cover else "",
+                    cover_url=cover_url,
                 )
             )
         return results

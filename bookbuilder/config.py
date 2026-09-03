@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -9,12 +10,15 @@ from pathlib import Path
 APP_NAME = "AuthorizedBookBuilder"
 DEFAULT_BASE_URL = "https://z-library.biz"
 LEGACY_BASE_URLS = {"https://z-library.bz"}
+VALID_BROWSER_MODES = {"auto", "headless", "compatibility"}
 
 
 def normalize_base_url(value: str) -> str:
     if not isinstance(value, str):
         return DEFAULT_BASE_URL
     normalized = value.strip().rstrip("/")
+    if re.fullmatch(r"https://(?:[a-z0-9-]+\.)*z-library\.[a-z]{2,24}/s", normalized, re.IGNORECASE):
+        normalized = normalized[:-2]
     if normalized.casefold() in LEGACY_BASE_URLS:
         return DEFAULT_BASE_URL
     return normalized or DEFAULT_BASE_URL
@@ -43,6 +47,7 @@ class Settings:
     authorization_confirmed: bool = False
     auto_update_source: bool = True
     source_checked_at: float = 0.0
+    browser_mode: str = "auto"
 
     @classmethod
     def load(cls) -> "Settings":
@@ -62,6 +67,8 @@ class Settings:
                 settings.source_checked_at = float(settings.source_checked_at)
             except (TypeError, ValueError):
                 settings.source_checked_at = 0.0
+            if settings.browser_mode not in VALID_BROWSER_MODES:
+                settings.browser_mode = "auto"
             return settings
         except (OSError, ValueError, TypeError):
             return cls(output_dir=str(default_download_dir()))

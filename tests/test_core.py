@@ -5,11 +5,11 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from selenium.common.exceptions import WebDriverException
 
-from bookbuilder.browser import BrowserController, navigation_error_message
+from bookbuilder.browser import AccessCheckError, BrowserController, navigation_error_message
 from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
@@ -78,6 +78,21 @@ class SettingsTests(unittest.TestCase):
     def test_custom_source_is_preserved(self) -> None:
         self.assertEqual(normalize_base_url("https://books.example/"), "https://books.example")
 
+    def test_search_path_is_normalized_to_origin(self) -> None:
+        self.assertEqual(normalize_base_url("https://z-library.biz/s/"), DEFAULT_BASE_URL)
+
+    def test_invalid_browser_mode_falls_back_to_auto(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            app_dir = Path(directory) / "AuthorizedBookBuilder"
+            app_dir.mkdir()
+            (app_dir / "settings.json").write_text(
+                json.dumps({"output_dir": directory, "browser_mode": "invalid"}),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory}):
+                settings = Settings.load()
+            self.assertEqual(settings.browser_mode, "auto")
+
 
 class SourceDiscoveryTests(unittest.TestCase):
     def test_manifest_accepts_managed_https_origin(self) -> None:
@@ -137,10 +152,22 @@ class ParserTests(unittest.TestCase):
             Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
             Path(r"C:\Temp\AuthorizedBookBuilder\chrome-profile"),
             9222,
+            "headless",
         )
         self.assertIn("--headless=new", arguments)
         self.assertIn("--window-size=1440,1200", arguments)
         self.assertNotIn("--start-minimized", arguments)
+
+    def test_compatibility_launch_arguments(self) -> None:
+        controller = BrowserController(Settings(browser_mode="compatibility"))
+        arguments = controller._launch_arguments(
+            Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+            Path(r"C:\Temp\AuthorizedBookBuilder\chrome-profile"),
+            9222,
+            "compatibility",
+        )
+        self.assertIn("--start-minimized", arguments)
+        self.assertNotIn("--headless=new", arguments)
 
     def test_navigation_timeout_message_is_actionable_and_has_no_stacktrace(self) -> None:
         error = WebDriverException(
@@ -169,6 +196,41 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(book.author, "张三")
         self.assertEqual(book.file_format, "PDF")
         self.assertEqual(book.size_bytes, int(53.97 * 1024**2))
+
+    def test_modern_search_card(self) -> None:
+        fixture = Path(__file__).parent / "fixtures" / "search_modern.html"
+        books = BrowserController.parse_search_html(
+            fixture.read_text(encoding="utf-8"),
+            "https://z-library.biz/s/?q=test",
+        )
+        self.assertEqual(len(books), 1)
+        book = books[0]
+        self.assertEqual(book.source_id, "2r09Bq9VKp")
+        self.assertEqual(book.title, "人工智能之知识图谱【文字版】")
+        self.assertEqual(book.author, "李涓子; 刘佳")
+        self.assertEqual(book.publisher, "清华大学出版社")
+        self.assertEqual(book.year, "2019")
+        self.assertEqual(book.language, "Chinese")
+        self.assertEqual(book.file_format, "PDF")
+        self.assertEqual(book.size_bytes, int(3.62 * 1024**2))
+        self.assertEqual(book.detail_url, "https://z-library.biz/book/2r09Bq9VKp/example.html")
+
+    def test_auto_mode_retries_access_check_in_compatibility_mode(self) -> None:
+        fixture = (Path(__file__).parent / "fixtures" / "search_modern.html").read_text(encoding="utf-8")
+        controller = BrowserController(Settings(browser_mode="auto"))
+        controller.driver = Mock(
+            page_source=fixture,
+            current_url="https://z-library.biz/s/?q=test",
+        )
+        with (
+            patch.object(controller, "_navigate", side_effect=[AccessCheckError("blocked"), None]) as navigate,
+            patch.object(controller, "close") as close,
+        ):
+            books = controller.search("test")
+        self.assertEqual(len(books), 1)
+        self.assertEqual(controller.runtime_mode, "compatibility")
+        self.assertEqual(navigate.call_count, 2)
+        close.assert_called_once_with()
 
 
 class DatabaseTests(unittest.TestCase):
