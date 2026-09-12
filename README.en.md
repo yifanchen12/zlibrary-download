@@ -124,7 +124,7 @@ This error means that Chrome and ChromeDriver started successfully, but the back
 3. If regular Chrome relies on a proxy or VPN extension, note that this application uses an isolated Chrome profile and does not inherit personal browser extensions. Use a system proxy or a directly connected network instead.
 4. Confirm that the source is still the valid HTTPS entry supplied by its administrator, save the corrected setting, and retry.
 
-Starting with `v1.4.1`, download controls use WebDriver's native click instead of synchronously executing the site's click script. Download-stage driver failures now produce a concise diagnostic instead of placing JavaScript details such as `lastIndexOf` or a native ChromeDriver stack in the dialog and status bar. When opening an issue, include the application version, error code, and source hostname, but do not upload cookies, tokens, complete query URLs, or personal paths.
+Starting with `v1.4.2`, the application reads the download control's real HTTP(S) target and navigates to it in the current browser session. This bypasses the site's broken click handler while preserving session state and the configured download directory. Download-stage driver failures produce a concise diagnostic instead of placing JavaScript details such as `lastIndexOf` or a native ChromeDriver stack in the dialog and status bar. When opening an issue, include the application version, error code, and source hostname, but do not upload cookies, tokens, complete query URLs, or personal paths.
 
 ## Security and privacy statement
 
@@ -158,7 +158,7 @@ source_registry.json    Repository-maintained current source registry
 
 ## Version and release
 
-- Current source version: `1.4.1`
+- Current source version: `1.4.2`
 - Latest release package: [BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - Default branch: `main`
 

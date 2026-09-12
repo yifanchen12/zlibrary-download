@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 from selenium.common.exceptions import WebDriverException
 
-from bookbuilder.browser import AccessCheckError, BrowserController, download_error_message, navigation_error_message
+from bookbuilder.browser import AccessCheckError, BrowserController, BrowserError, download_error_message, navigation_error_message
 from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
@@ -211,19 +211,34 @@ class ParserTests(unittest.TestCase):
         self.assertNotIn("lastIndexOf", message)
         self.assertNotIn("Stacktrace", message)
 
-    def test_download_uses_native_button_click(self) -> None:
+    def test_download_bypasses_broken_click_handler(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
             controller = BrowserController(Settings())
             button = Mock(text="PDF")
-            button.click.side_effect = lambda: (target / "browser-download.pdf").write_bytes(b"pdf")
+            button.get_attribute.return_value = "/dl/file.pdf"
             controller.driver = Mock()
+            controller.driver.current_url = "https://example.invalid/book/ABC123/example.html"
             controller.driver.find_elements.return_value = [button]
+            controller.driver.execute_script.side_effect = lambda *_: (target / "browser-download.pdf").write_bytes(b"pdf")
             with patch.object(controller, "_navigate"), patch("bookbuilder.browser.time.sleep"):
                 result = controller.download(sample_book(), target, timeout=5)
-            button.click.assert_called_once_with()
-            controller.driver.execute_script.assert_not_called()
+            button.click.assert_not_called()
+            controller.driver.execute_script.assert_called_once_with(
+                "window.location.assign(arguments[0])", "https://example.invalid/dl/file.pdf"
+            )
             self.assertEqual(result.read_bytes(), b"pdf")
+
+    def test_download_rejects_non_http_button_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            controller = BrowserController(Settings())
+            button = Mock(text="PDF")
+            button.get_attribute.return_value = "javascript:void(0)"
+            controller.driver = Mock(current_url="https://example.invalid/book/ABC123/example.html")
+            controller.driver.find_elements.return_value = [button]
+            with patch.object(controller, "_navigate"), self.assertRaisesRegex(BrowserError, "HTTP\\(S\\)"):
+                controller.download(sample_book(), Path(directory), timeout=1)
+            controller.driver.execute_script.assert_not_called()
 
     def test_search_card(self) -> None:
         fixture = Path(__file__).parent / "fixtures" / "search.html"

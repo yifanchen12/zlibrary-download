@@ -422,9 +422,14 @@ class BrowserController:
         before = {path.resolve(): (path.stat().st_size, path.stat().st_mtime_ns) for path in output_dir.iterdir() if path.is_file()}
         started_at = time.time()
         try:
-            # Native WebDriver click does not surface exceptions thrown by the
-            # site's synchronous onclick handler as execute_script does.
-            button.click()
+            href = button.get_attribute("href") or ""
+            download_url = urljoin(self.driver.current_url, href)
+            parsed = urlsplit(download_url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise BrowserError("下载按钮没有可用的 HTTP(S) 链接。页面结构可能已经更新。")
+            # Navigate to the anchor target directly so the site's broken
+            # onclick handler cannot intercept the download.
+            self.driver.execute_script("window.location.assign(arguments[0])", download_url)
         except WebDriverException as error:
             raise BrowserError(download_error_message(error)) from error
         last_size = -1
