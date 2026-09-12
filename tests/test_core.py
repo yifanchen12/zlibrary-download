@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -13,6 +14,7 @@ from bookbuilder.browser import AccessCheckError, BrowserController, navigation_
 from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
+from bookbuilder.reader import ReaderError, read_document
 from bookbuilder.source_discovery import (
     SourceDiscoveryError,
     discover_preferred_source,
@@ -271,6 +273,73 @@ class DatabaseTests(unittest.TestCase):
             row = database.recent(1)[0]
             self.assertEqual(row["status"], "failed")
             self.assertEqual(row["error"], "network error")
+
+    def test_favorite_and_reading_state_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = HistoryDatabase(Path(directory) / "history.sqlite3")
+            book = sample_book()
+            self.assertTrue(database.toggle_favorite(book))
+            self.assertTrue(database.is_favorite(book.source_id))
+            self.assertEqual(database.favorites()[0]["title"], book.title)
+            self.assertFalse(database.toggle_favorite(book))
+
+            history_id = database.begin(book, "test")
+            target = Path(directory) / "book.txt"
+            target.write_text("正文", encoding="utf-8")
+            database.complete(history_id, str(target), target.stat().st_size)
+            database.record_reading(history_id)
+            database.record_reading(history_id, 1.5)
+            state = database.reading_state(history_id)
+            assert state is not None
+            self.assertEqual(state["open_count"], 1)
+            self.assertEqual(state["progress"], 1.0)
+            self.assertEqual(database.reading_history()[0]["id"], history_id)
+
+
+class ReaderTests(unittest.TestCase):
+    def test_reads_text_html_and_epub_spine(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            text_file = root / "book.txt"
+            text_file.write_text("第一章\n正文", encoding="utf-8")
+            self.assertIn("正文", read_document(text_file))
+
+            html_file = root / "book.html"
+            html_file.write_text("<h1>标题</h1><script>hidden</script><p>正文</p>", encoding="utf-8")
+            html = read_document(html_file)
+            self.assertIn("标题", html)
+            self.assertNotIn("hidden", html)
+
+            epub = root / "book.epub"
+            with zipfile.ZipFile(epub, "w") as archive:
+                archive.writestr(
+                    "META-INF/container.xml",
+                    '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>'
+                    '<rootfile full-path="OEBPS/content.opf"/></rootfiles></container>',
+                )
+                archive.writestr(
+                    "OEBPS/content.opf",
+                    '<package xmlns="http://www.idpf.org/2007/opf"><manifest>'
+                    '<item id="c1" href="one.xhtml"/></manifest><spine><itemref idref="c1"/></spine></package>',
+                )
+                archive.writestr("OEBPS/one.xhtml", "<html><body><h1>章节</h1><p>森林正文</p></body></html>")
+            self.assertIn("森林正文", read_document(epub))
+
+    def test_rejects_unsupported_format(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "book.pdf"
+            path.write_bytes(b"%PDF")
+            with self.assertRaises(ReaderError):
+                read_document(path)
+
+            unsafe = Path(directory) / "unsafe.epub"
+            with zipfile.ZipFile(unsafe, "w") as archive:
+                archive.writestr(
+                    "META-INF/container.xml",
+                    '<container><rootfiles><rootfile full-path="../content.opf"/></rootfiles></container>',
+                )
+            with self.assertRaises(ReaderError):
+                read_document(unsafe)
 
 
 if __name__ == "__main__":

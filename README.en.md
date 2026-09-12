@@ -16,7 +16,19 @@ A Windows desktop utility for authorized book search, download, and fuzzy librar
 - **Request throttling:** Serial processing with a default three-second request interval, a 512 MiB free-space reserve, and explicit handling for timeouts, source limits, and insufficient disk space.
 - **Automatic source discovery:** At startup, the application checks the repository-maintained public source registry at most once every six hours. A new source is filled in and persisted only after HTTPS and hostname validation; trusted site redirects are also recognized.
 - **Browser compatibility policy:** Chrome first runs in native `--headless=new` mode without a desktop window. If the source explicitly rejects that mode, the application automatically retries with a hidden regular Chrome instance. Windows startup state, off-screen placement, and Win32 window hiding keep the compatibility window off both the desktop and taskbar. The mode can also be fixed to **Fully headless** or **Compatibility** in settings. Both modes use `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` instead of the user's personal Chrome profile.
-- **UI and packaging:** Blue/white technical UI with a Furina-themed header accent. The EXE uses `assets/app_icon.ico`, a Hydro droplet and open-book icon.
+- **Sumeru-themed UI:** Pale green, ivory and gold, botanical-palace scenery and the existing Nahida-themed image. Includes sidebar navigation, header search, topic cards, recent acquisitions, recent-file access and live task summaries. Built with Tkinter/Pillow; no new web framework.
+- **Favorites:** Save search results or download records in local SQLite, then resume a download, open its source, or read the local copy.
+- **Lightweight reading:** EPUB, TXT, Markdown and HTML open as plain text inside the app with automatic scroll-position persistence. PDFs and other formats use the associated system application; only open time and count are recorded.
+
+## Home page
+
+![Sumeru home: synthetic books and progress](docs/sumeru-home.png)
+
+- Book cards show real search results or completed download records, with typographic covers when images are unavailable. The screenshot contains synthetic test data only.
+- Topic cards populate the existing library builder. Header search and task controls reuse existing operations. Batch pause/stop takes effect at safe checkpoints; single downloads cannot be paused.
+- Recent files resume through the built-in reader when supported. Its progress reflects the real scroll position; external readers never receive an invented percentage. Topic discovery is not personalized recommendation.
+- Narrow windows move the right column below the shelf and support vertical scrolling. Other pages also support horizontal scrolling. Minimum window size: 1100 × 760.
+- [Artwork and generation prompt](assets/README.md) · [Implementation scope](docs/plans/sumeru-home-redesign.md). Redistribution permission for the existing character artwork remains unverified.
 
 ## Matching and capacity algorithm
 
@@ -40,7 +52,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe main.py
 ```
 
-Run the test suite:
+Run the test suite (GUI checks require a Windows desktop session and use isolated synthetic data without live site access):
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
@@ -119,7 +131,7 @@ Common Chrome network failures now produce a concise diagnostic instead of placi
 1. **Data flow:** Search terms, detail-page requests, and downloads are sent to the configured source. When automatic source discovery is enabled, the application retrieves the public `source_registry.json` from `raw.githubusercontent.com/yifanchen12/zlibrary-download` at most once every six hours. This request contains no query terms, download history, cookies, tokens, or local paths.
 2. **Browser session data:** The isolated Chrome profile may contain cookies, cache, or site storage if the user signs in. Treat this directory as sensitive and never commit or share it.
 3. **Credentials:** The application does not request passwords, API tokens, or private keys. Never place credentials, cookies, token-bearing URLs, or personal filesystem paths in the repository, logs, or issue reports.
-4. **Downloaded files:** Files from external sources are untrusted input. Scan them with local security software before opening; do not execute scripts, macros, or binaries found in an ebook archive.
+4. **Downloaded files:** Files from external sources are untrusted input. The built-in reader does not execute EPUB/HTML scripts or load remote resources and limits parsed text size. Still scan files locally before opening; do not execute scripts, macros, or binaries found in an ebook archive.
 5. **Transport:** HTTPS is the default source scheme. If the source URL is changed, independently verify the domain, certificate, and ownership; the application does not establish source trust for the operator.
 6. **Filesystem behavior:** Writes are limited to the selected download directory and the application-data directory above. Existing files are not overwritten or deleted during the normal flow.
 7. **Release integrity:** After downloading an EXE from a GitHub Release, verify it with `Get-FileHash .\BookLibraryBuilder.exe -Algorithm SHA256` against the release digest.
@@ -132,21 +144,22 @@ See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and operational sec
 main.py                 CLI entry point, version, and smoke test
 bookbuilder/browser.py  Chrome lifecycle, parsing, and download wait logic
 bookbuilder/services.py Download service and fuzzy-builder scheduler
-bookbuilder/database.py SQLite history persistence
+bookbuilder/database.py SQLite download, favorite, and reading state
+bookbuilder/reader.py   Safe local EPUB/text extraction
 bookbuilder/config.py   Settings and local data paths
 bookbuilder/source_discovery.py Remote-registry validation and trusted redirect detection
 bookbuilder/gui.py      Tkinter interface
 bookbuilder/models.py   Data models
 bookbuilder/utils.py    Filename, size, and matching helpers
-assets/                 EXE icon and header artwork
+assets/                 Sumeru-themed icons, UI artwork, and provenance notes
 tests/                  Unit tests and HTML fixtures
 source_registry.json    Repository-maintained current source registry
 ```
 
 ## Version and release
 
-- Current version: `1.3.2`
-- Windows package: [BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
+- Current source version: `1.4.0`
+- Latest release package: [BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - Default branch: `main`
 
 This repository does not include a general open-source license file. Unless separately authorized in writing, use of the source and assets is subject to the repository owner’s permission. Third-party book content is outside the project’s license scope.

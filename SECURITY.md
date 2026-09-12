@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-当前维护版本为 `1.3.2`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
+当前维护源码版本为 `1.4.0`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
 
 ## 漏洞报告
 
@@ -24,6 +24,7 @@
 - 将 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\` 视为敏感目录；其中可能存在用户主动登录产生的 Cookie 和站点存储。
 - 不要把 `settings.json`、`history.sqlite3`、Chrome 配置目录、下载历史或构建产物中的个人路径提交到公共仓库。
 - 将外部下载文件按不可信输入处理，打开前进行安全扫描，不执行书籍压缩包中的脚本、宏或二进制文件。
+- 内置阅读器只提取 EPUB/HTML 的本地纯文本，不执行脚本、不加载远程资源，并拒绝不安全的 EPUB 路径及超限正文。
 - 不要在 Issue、构建日志或 Release 说明中发布凭据、Cookie、Token 或带认证参数的 URL。
 
 ## 设计说明
@@ -32,4 +33,4 @@
 
 ---
 
-The current maintained version is `1.3.2`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated Chrome profile in both headless and Windows-hidden compatibility modes.
+The current maintained source version is `1.4.0`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The built-in reader extracts local plain text only, does not execute scripts or load remote resources, and rejects unsafe EPUB paths and oversized text. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated Chrome profile in both headless and Windows-hidden compatibility modes.

@@ -16,7 +16,19 @@ Windows 桌面端的授权书籍检索、下载与模糊建库工具。项目使
 - **请求节制**：默认串行处理并使用 3 秒请求间隔；目标磁盘保留 512 MiB 安全余量；站点限额、超时和空间不足会写入历史记录。
 - **入口自动发现**：启动后最多每 6 小时读取一次仓库维护的公开入口清单；通过 HTTPS 与域名校验后自动填充并保存新入口，同时识别受信任的站点跳转。
 - **浏览器兼容策略**：默认先用原生 `--headless=new` 完全无窗口运行；若站点明确拒绝该模式，自动改用隐藏的普通 Chrome 重试。兼容窗口通过 Windows 启动参数、屏幕外定位和 Win32 窗口隐藏共同处理，不在桌面或任务栏展示。也可在设置中固定为“完全无窗口”或“兼容模式”。两种模式均使用 `%LOCALAPPDATA%\AuthorizedBookBuilder\chrome-profile\`，不读取用户个人 Chrome 配置。
-- **本地化界面**：蓝白高科技主题，页眉包含芙宁娜主题装饰图；EXE 使用 `assets/app_icon.ico` 的水滴与开放书本图标。
+- **须弥主题界面**：浅绿、白、金配色，森林宫殿背景与既有纳西妲主题贴图；左侧导航、顶部检索、分类卡片、最近入库、最近文件与下载任务摘要。使用 Tkinter/Pillow，无新增 Web 框架。
+- **收藏**：可从检索结果或下载历史收藏书目；收藏保存在本地 SQLite，可继续下载、打开来源或阅读已下载文件。
+- **轻量阅读**：EPUB、TXT、Markdown、HTML 在应用内以纯文本方式阅读并自动保存滚动进度；PDF 和其他格式由系统关联程序打开，只记录打开时间和次数。
+
+## 首页
+
+![须弥首页：合成书目与进度](docs/sumeru-home.png)
+
+- 书卡来自实际检索结果或已完成的下载历史；缺失图片时使用文字封面。截图仅含合成测试数据。
+- 分类卡片填写原模糊建库参数；顶部检索与任务控制沿用现有操作。批量暂停/停止在安全检查点生效，单本下载不支持暂停。
+- “我的阅读”继续最近文件；内置阅读进度来自真实滚动位置，外部阅读不生成虚假百分比。主题发现不是个性化推荐。
+- 窄窗口将右栏移至书架下方，提供纵向滚动；其他页面提供横向滚动。最低窗口为 1100 × 760。
+- [素材说明与生成提示词](assets/README.md) · [实施范围](docs/plans/sumeru-home-redesign.md)。现有角色素材的再分发许可尚待核实。
 
 ## 算法与容量约束
 
@@ -40,7 +52,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe main.py
 ```
 
-运行测试：
+运行测试（GUI 检查需要 Windows 桌面会话；使用隔离配置与合成数据，不访问真实站点）：
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
@@ -119,7 +131,7 @@ dist\BookLibraryBuilder.exe
 1. **数据流向**：检索词、详情页请求和下载请求会发送至设置页中的来源地址。启用入口自动检测时，程序最多每 6 小时从 `raw.githubusercontent.com/yifanchen12/zlibrary-download` 获取公开的 `source_registry.json`；该请求不包含检索词、下载历史、Cookie、令牌或本地路径。
 2. **浏览器会话**：独立 Chrome 配置目录可能包含用户主动登录后产生的 Cookie、缓存或站点存储。请将该目录视为敏感数据，不要复制到公共仓库或共享压缩包。
 3. **凭据保护**：程序不要求提交密码、API Token 或私钥；仓库、日志和问题报告中不得粘贴任何凭据、Cookie、完整 URL 中的令牌或个人路径。
-4. **文件安全**：下载文件来自外部站点，应按不可信输入处理。打开前请使用本机安全软件扫描，不要执行电子书压缩包中的脚本、宏或可执行文件。
+4. **文件安全**：下载文件来自外部站点，应按不可信输入处理。内置阅读器不执行 EPUB/HTML 脚本或加载远程资源，并限制解析正文大小；打开前仍应使用本机安全软件扫描，不要执行电子书压缩包中的脚本、宏或可执行文件。
 5. **传输安全**：默认来源为 HTTPS；若手动改为其他地址，应先验证域名、证书和站点所有权。应用不会替用户判断来源是否可信。
 6. **文件系统**：程序只在用户选择的下载目录和上述应用数据目录中写入；同名文件采用新名称，正常流程不覆盖或删除既有文件。
 7. **发布完整性**：从 GitHub Release 下载 EXE 后，建议使用 `Get-FileHash .\BookLibraryBuilder.exe -Algorithm SHA256` 校验发布说明中的摘要。
@@ -132,21 +144,22 @@ dist\BookLibraryBuilder.exe
 main.py                 CLI 入口、版本与冒烟测试
 bookbuilder/browser.py  Chrome 生命周期、页面解析和下载等待
 bookbuilder/services.py 下载服务与模糊建库调度器
-bookbuilder/database.py SQLite 历史记录
+bookbuilder/database.py SQLite 下载、收藏与阅读状态
+bookbuilder/reader.py   本地 EPUB/文本安全解析
 bookbuilder/config.py   设置与本地数据目录
 bookbuilder/source_discovery.py 远程入口清单校验与安全跳转识别
 bookbuilder/gui.py      Tkinter 用户界面
 bookbuilder/models.py   数据模型
 bookbuilder/utils.py    文件名、大小和匹配工具
-assets/                 EXE 图标与页眉装饰资源
+assets/                 须弥主题图标、界面素材与来源说明
 tests/                  单元测试和 HTML fixture
 source_registry.json    项目维护的当前站点入口清单
 ```
 
 ## 版本与发布
 
-- 当前版本：`1.3.2`
-- Windows 发布包：[BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
+- 当前源码版本：`1.4.0`
+- 最近发布包：[BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - 仓库默认分支：`main`
 
 仓库未附带统一的开源许可证文件；除另行书面授权外，源代码和资源的使用应遵循仓库所有者的授权范围，第三方书籍内容不属于本项目的许可范围。
