@@ -427,9 +427,9 @@ class BrowserController:
             parsed = urlsplit(download_url)
             if parsed.scheme not in {"http", "https"} or not parsed.netloc:
                 raise BrowserError("下载按钮没有可用的 HTTP(S) 链接。页面结构可能已经更新。")
-            # Navigate to the anchor target directly so the site's broken
-            # onclick handler cannot intercept the download.
-            self.driver.execute_script("window.location.assign(arguments[0])", download_url)
+            # WebDriver navigation bypasses both the broken onclick handler
+            # and the site's failing JavaScript environment.
+            self.driver.get(download_url)
         except WebDriverException as error:
             raise BrowserError(download_error_message(error)) from error
         last_size = -1
