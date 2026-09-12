@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 from selenium.common.exceptions import WebDriverException
 
-from bookbuilder.browser import AccessCheckError, BrowserController, navigation_error_message
+from bookbuilder.browser import AccessCheckError, BrowserController, download_error_message, navigation_error_message
 from bookbuilder.config import DEFAULT_BASE_URL, Settings, normalize_base_url
 from bookbuilder.database import HistoryDatabase
 from bookbuilder.models import Book
@@ -200,6 +200,30 @@ class ParserTests(unittest.TestCase):
         error = WebDriverException("unknown error: net::ERR_NAME_NOT_RESOLVED")
         message = navigation_error_message("https://example.invalid", error)
         self.assertIn("域名解析失败", message)
+
+    def test_download_javascript_error_has_no_stacktrace(self) -> None:
+        error = WebDriverException(
+            "javascript error: Cannot read properties of null (reading 'lastIndexOf')\n"
+            "Stacktrace:\nchromedriver!GetHandleVerifier"
+        )
+        message = download_error_message(error)
+        self.assertIn("下载按钮脚本", message)
+        self.assertNotIn("lastIndexOf", message)
+        self.assertNotIn("Stacktrace", message)
+
+    def test_download_uses_native_button_click(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            controller = BrowserController(Settings())
+            button = Mock(text="PDF")
+            button.click.side_effect = lambda: (target / "browser-download.pdf").write_bytes(b"pdf")
+            controller.driver = Mock()
+            controller.driver.find_elements.return_value = [button]
+            with patch.object(controller, "_navigate"), patch("bookbuilder.browser.time.sleep"):
+                result = controller.download(sample_book(), target, timeout=5)
+            button.click.assert_called_once_with()
+            controller.driver.execute_script.assert_not_called()
+            self.assertEqual(result.read_bytes(), b"pdf")
 
     def test_search_card(self) -> None:
         fixture = Path(__file__).parent / "fixtures" / "search.html"

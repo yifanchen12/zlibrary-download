@@ -124,7 +124,7 @@ dist\BookLibraryBuilder.exe
 3. 若普通 Chrome 依赖代理/VPN 扩展访问，需注意本工具使用隔离的 Chrome 配置，不会继承个人浏览器扩展；请使用系统代理或可直连网络；
 4. 核对站点入口是否仍为管理员提供的有效 HTTPS 地址，修改后保存设置并重新检索。
 
-从本版本开始，常见 Chrome 网络错误会显示简短的中文诊断，不再把 ChromeDriver 原生堆栈写入弹窗或状态栏。提交问题时请提供应用版本、错误码和站点域名，不要上传 Cookie、令牌、完整查询 URL 或个人路径。
+从 `v1.4.1` 开始，下载按钮使用 WebDriver 原生点击，避免站点点击脚本异常被同步传回应用；下载阶段的 ChromeDriver 异常统一显示简短诊断，不再把 `lastIndexOf` 等 JavaScript 错误或原生堆栈写入弹窗和状态栏。提交问题时请提供应用版本、错误码和站点域名，不要上传 Cookie、令牌、完整查询 URL 或个人路径。
 
 ## 安全与隐私声明
 
@@ -158,7 +158,7 @@ source_registry.json    项目维护的当前站点入口清单
 
 ## 版本与发布
 
-- 当前源码版本：`1.4.0`
+- 当前源码版本：`1.4.1`
 - 最近发布包：[BookLibraryBuilder.exe v1.3.2](https://github.com/yifanchen12/zlibrary-download/releases/tag/v1.3.2)
 - 仓库默认分支：`main`
 

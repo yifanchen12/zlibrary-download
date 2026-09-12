@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-当前维护源码版本为 `1.4.0`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
+当前维护源码版本为 `1.4.1`。安全修复优先针对当前版本和 GitHub Release 中明确标注的版本。
 
 ## 漏洞报告
 
@@ -33,4 +33,4 @@
 
 ---
 
-The current maintained source version is `1.4.0`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The built-in reader extracts local plain text only, does not execute scripts or load remote resources, and rejects unsafe EPUB paths and oversized text. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated Chrome profile in both headless and Windows-hidden compatibility modes.
+The current maintained source version is `1.4.1`. Report security issues privately, do not disclose credentials or session data, and treat all files retrieved from external sources as untrusted input. The built-in reader extracts local plain text only, does not execute scripts or load remote resources, and rejects unsafe EPUB paths and oversized text. The application has no built-in telemetry or analytics, retrieves only the public source registry when automatic discovery is enabled, and uses a dedicated Chrome profile in both headless and Windows-hidden compatibility modes.

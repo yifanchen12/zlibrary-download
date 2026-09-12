@@ -69,6 +69,18 @@ def navigation_error_message(url: str, error: WebDriverException) -> str:
     )
 
 
+def download_error_message(error: WebDriverException) -> str:
+    """Describe download-stage driver failures without leaking native stacks."""
+    raw = getattr(error, "msg", "") or str(error)
+    if "javascript error" in raw.casefold():
+        return "站点下载按钮脚本执行失败。页面结构可能已经更新，请刷新后重试。"
+    match = re.search(r"net::(ERR_[A-Z0-9_]+)", raw)
+    if match:
+        code = match.group(1)
+        return f"下载连接失败（{code}）。请检查网络、系统代理和站点状态后重试。"
+    return "Chrome 未能完成下载操作。请刷新详情页后重试；若持续出现，请更新应用。"
+
+
 def find_chrome() -> Path:
     candidates: list[Path] = []
     for env_name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
@@ -391,23 +403,30 @@ class BrowserController:
         output_dir.mkdir(parents=True, exist_ok=True)
         self._navigate(book.detail_url, "a.addDownloadedBook[href]")
         assert self.driver is not None
-        buttons = self.driver.find_elements(By.CSS_SELECTOR, "a.addDownloadedBook[href]")
-        if not buttons:
-            raise BrowserError("详情页未找到可用下载按钮。")
-        button = buttons[0]
-        button_text = button.text.upper()
-        if book.file_format and book.file_format not in button_text:
-            matching = [item for item in buttons if book.file_format in item.text.upper()]
-            if matching:
-                button = matching[0]
-
-        self.driver.execute_cdp_cmd(
-            "Browser.setDownloadBehavior",
-            {"behavior": "allow", "downloadPath": str(output_dir.resolve()), "eventsEnabled": True},
-        )
+        try:
+            buttons = self.driver.find_elements(By.CSS_SELECTOR, "a.addDownloadedBook[href]")
+            if not buttons:
+                raise BrowserError("详情页未找到可用下载按钮。")
+            button = buttons[0]
+            button_text = button.text.upper()
+            if book.file_format and book.file_format not in button_text:
+                matching = [item for item in buttons if book.file_format in item.text.upper()]
+                if matching:
+                    button = matching[0]
+            self.driver.execute_cdp_cmd(
+                "Browser.setDownloadBehavior",
+                {"behavior": "allow", "downloadPath": str(output_dir.resolve()), "eventsEnabled": True},
+            )
+        except WebDriverException as error:
+            raise BrowserError(download_error_message(error)) from error
         before = {path.resolve(): (path.stat().st_size, path.stat().st_mtime_ns) for path in output_dir.iterdir() if path.is_file()}
         started_at = time.time()
-        self.driver.execute_script("arguments[0].click()", button)
+        try:
+            # Native WebDriver click does not surface exceptions thrown by the
+            # site's synchronous onclick handler as execute_script does.
+            button.click()
+        except WebDriverException as error:
+            raise BrowserError(download_error_message(error)) from error
         last_size = -1
         completed: Path | None = None
 
@@ -433,7 +452,10 @@ class BrowserController:
                 last_size = current
             if completed:
                 break
-            page_text = self.driver.find_element(By.TAG_NAME, "body").text.casefold()
+            try:
+                page_text = self.driver.find_element(By.TAG_NAME, "body").text.casefold()
+            except WebDriverException as error:
+                raise BrowserError(download_error_message(error)) from error
             if "download limit" in page_text or "daily limit" in page_text:
                 raise BrowserError("站点提示已达到下载限额。")
         if not completed:

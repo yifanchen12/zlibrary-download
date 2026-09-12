@@ -111,3 +111,9 @@
 - 七页导航、收藏页、阅读记录页及 1100 × 760 重排截图已检查；首页截图已更新为合成 PDF/TXT 记录，不包含私人书库。
 - `build.ps1` 完成 1.4.0 单文件 EXE 构建和隔离冒烟测试；文件版本/产品版本均为 1.4.0。最终包另以隔离配置完成真实 GUI 启动、窗口截图及正常关闭。
 - GitHub 目标已核实为公开仓库 `yifanchen12/zlibrary-download`，默认分支 `main`；提交与推送在完成差异审计后执行。
+
+### v1.4.1 下载兼容修复（2026-09-13）
+
+- 现场错误为详情页下载按钮的同步 JavaScript 点击抛出 `Cannot read properties of null (reading 'lastIndexOf')`；搜索、UI 和 ChromeDriver 会话本身均已正常建立。
+- `browser.py` 改用 WebDriver 原生元素点击；下载阶段的按钮查找、CDP 设置、点击和页面状态读取统一将 WebDriver 异常转换为不含原生堆栈、查询 URL 或页面脚本细节的短消息。
+- 回归检查覆盖原生点击实际生成下载文件，以及上述 JavaScript 错误不再暴露 `lastIndexOf`/`Stacktrace`。
